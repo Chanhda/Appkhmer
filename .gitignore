@@ -31,6 +31,7 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript
@@ -41,3 +42,9 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Firebase & service account secrets
+*-firebase-adminsdk-*.json
+service-account*.json
+*.json.local
+.env.local

@@ -1,98 +1,633 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Link, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Dimensions,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInRight,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { BorderRadius, Colors, FontFamily, Glass, Shadows, Spacing, Typography } from '@/constants/theme';
+import { useLanguage } from '@/contexts/language-context';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { type ArticleDocument, fetchArticles } from '@/lib/article-repository';
+import { useAuthSession } from '@/lib/auth-session';
+import { type HeritageDocument, fetchHeritages } from '@/lib/heritage-repository';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const HERO_HEIGHT = Math.min(SCREEN_HEIGHT * 0.52, 460);
+
+// Category label colors
+const CATEGORY_COLORS: Record<string, string> = {
+  'Lễ hội': '#FFB4A8',
+  'Kiến trúc': '#F2CA50',
+  'Ẩm thực': '#7FDEDD',
+  'Nghệ thuật': '#D0C5AF',
+  'Cộng đồng': '#7FDEDD',
+  'Du lịch': '#FFB4A8',
+};
+
+const HERO_IMAGE = require('@/assets/images/hero-khmer.jpg');
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const { isAdmin, firebaseUser, profile } = useAuthSession();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'dark'];
+  const styles = getStyles(colors, colorScheme ?? 'dark');
+  const { t, language } = useLanguage();
+  const router = useRouter();
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const [articles, setArticles] = useState<ArticleDocument[]>([]);
+  const [heritages, setHeritages] = useState<HeritageDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [stats, setStats] = useState({ heritage: 12, articles: 19, provinces: 6 });
+
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler(e => {
+    scrollY.value = e.contentOffset.y;
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        
+        let articleData: ArticleDocument[] = [];
+        try {
+          articleData = await fetchArticles();
+        } catch (e) {
+          console.error('Error fetching articles:', e);
+        }
+
+        let heritageData: HeritageDocument[] = [];
+        try {
+          heritageData = await fetchHeritages();
+        } catch (e) {
+          console.error('Error fetching heritages:', e);
+        }
+
+        if (mounted) {
+          setArticles(articleData.slice(0, 6));
+          setHeritages(heritageData.slice(0, 6));
+          
+          const uniqueProvinces = Array.from(new Set(heritageData.map(h => h.province).filter(Boolean)));
+          setStats({
+            heritage: heritageData.length || 12,
+            articles: articleData.length || 19,
+            provinces: uniqueProvinces.length || 6,
+          });
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const filteredArticles = articles.filter(a =>
+    !search || a.title.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const displayName = profile?.displayName ?? firebaseUser?.displayName ?? 'Heritage';
+
+  return (
+    <View style={styles.screen}>
+      <Animated.ScrollView
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* ── Hero Section ── */}
+        <View style={styles.heroSection}>
+          <Image
+            source={HERO_IMAGE}
+            style={styles.heroImage}
+            resizeMode="cover"
+          />
+          <View style={styles.heroGradient} />
+          <View style={styles.heroContent}>
+            <ThemedText style={styles.heroTitle}>{t.home.title}</ThemedText>
+            <ThemedText style={styles.heroSub} numberOfLines={2}>{t.home.subtitle}</ThemedText>
+          </View>
+        </View>
+
+        {/* ── Search Bar ── */}
+        <View style={styles.searchSection}>
+          <View style={[styles.searchBar, searchFocused && styles.searchBarFocused]}>
+            <IconSymbol name="magnifyingglass" size={18} color={`${colors.primary}80`} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={t.common.search + '...'}
+              placeholderTextColor={`${colors.textTertiary}80`}
+              value={search}
+              onChangeText={setSearch}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+            />
+            {search.length > 0 ? (
+              <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+                <IconSymbol name="xmark.circle.fill" size={18} color={`${colors.primary}80`} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Admin shortcut */}
+        {isAdmin && (
+          <View style={styles.adminRow}>
+            <Pressable
+              style={({ pressed }) => [styles.adminBtn, pressed && { opacity: 0.8 }]}
+              onPress={() => router.push('/admin')}
+            >
+              <IconSymbol name="gear.badge" size={15} color={colors.primary} />
+              <ThemedText style={styles.adminBtnText}>Quản trị viên</ThemedText>
+              <IconSymbol name="chevron.right" size={12} color={colors.primary} />
+            </Pressable>
+          </View>
+        )}
+
+        {/* ── Statistics Section ── */}
+        <View
+          style={styles.statsSection}
+        >
+          <View style={styles.statsContainer}>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => router.push('/(tabs)/heritage')}
+              style={[styles.statCard, { backgroundColor: colors.backgroundSecondary, borderColor: `${colors.primary}20` }]}
+            >
+              <View style={[styles.statIconWrap, { backgroundColor: `${colors.primary}12` }]}>
+                <IconSymbol name="building.columns.fill" size={14} color={colors.primary} />
+              </View>
+              <View style={styles.statContent}>
+                <ThemedText style={styles.statNumber}>{stats.heritage}</ThemedText>
+                <ThemedText style={styles.statLabel}>{t.home.stats.heritage}</ThemedText>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => router.push('/(tabs)/explore')}
+              style={[styles.statCard, { backgroundColor: colors.backgroundSecondary, borderColor: `${colors.primary}20` }]}
+            >
+              <View style={[styles.statIconWrap, { backgroundColor: `${colors.accent}12` }]}>
+                <IconSymbol name="doc.text.fill" size={14} color={colors.accent} />
+              </View>
+              <View style={styles.statContent}>
+                <ThemedText style={styles.statNumber}>{stats.articles}</ThemedText>
+                <ThemedText style={styles.statLabel}>{t.home.stats.articles}</ThemedText>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => router.push('/(tabs)/map')}
+              style={[styles.statCard, { backgroundColor: colors.backgroundSecondary, borderColor: `${colors.primary}20` }]}
+            >
+              <View style={[styles.statIconWrap, { backgroundColor: 'rgba(255, 180, 168, 0.12)' }]}>
+                <IconSymbol name="map.fill" size={14} color={colors.secondary} />
+              </View>
+              <View style={styles.statContent}>
+                <ThemedText style={styles.statNumber}>{stats.provinces}</ThemedText>
+                <ThemedText style={styles.statLabel}>{t.home.stats.provinces}</ThemedText>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── Featured Heritage ── */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <ThemedText style={styles.sectionTitle}>{t.home.sections.featured}</ThemedText>
+            <Link href="/(tabs)/heritage" asChild>
+              <Pressable>
+                <ThemedText style={styles.seeAll}>{t.common.seeAll}</ThemedText>
+              </Pressable>
+            </Link>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hScroll}
+          >
+            {heritages.slice(0, 5).map((h) => (
+              <View key={h.id} style={styles.heritageCard}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => router.push(`/heritage/${h.id}`)}
+                  style={styles.heritageCardInner}
+                >
+                  <Image
+                    source={{ uri: (h.coverImage || 'https://images.unsplash.com/photo-1549692520-acc6669e2f0c?auto=format&fit=crop&w=400&q=75') }}
+                    style={styles.heritageCardImage}
+                    resizeMode="cover"
+                  />
+                  <LinearGradient
+                    colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)']}
+                    style={styles.heritageCardContent}
+                  >
+                    <View style={styles.provinceTag}>
+                      <ThemedText style={styles.provinceTagText}>{h.province ?? 'Sóc Trăng'}</ThemedText>
+                    </View>
+                    <ThemedText style={styles.heritageCardName} numberOfLines={2}>{h.title}</ThemedText>
+                    <View style={styles.heritageCardMeta}>
+                      <IconSymbol name="location.fill" size={12} color="rgba(255,255,255,0.75)" />
+                      <ThemedText style={styles.heritageCardDist}>{h.province ?? 'Nam Bộ'}</ThemedText>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            {heritages.length === 0 && [0, 1, 2].map(i => (
+              <View key={i} style={[styles.heritageCard, styles.skeletonCard]} />
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* ── Latest Articles ── */}
+        <View style={styles.section}>
+          <ThemedText style={[styles.sectionTitle, { paddingHorizontal: Spacing.containerMargin }]}>
+            {t.home.sections.articles}
+          </ThemedText>
+
+          <View style={styles.articleList}>
+            {filteredArticles.slice(0, 6).map((article, idx) => (
+              <Pressable
+                key={article.id}
+                onPress={() => router.push(`/articles/${article.id}`)}
+                style={({ pressed }) => [styles.articleCardFull, pressed && { opacity: 0.85 }]}
+              >
+                {/* Full-width Image */}
+                <Image
+                  source={{ uri: article.coverImage || 'https://images.unsplash.com/photo-1562625964-ffe9b2f617bc?auto=format&fit=crop&w=600&q=80' }}
+                  style={styles.articleCardImageFull}
+                  resizeMode="cover"
+                />
+
+                {/* Title & Info below image */}
+                <View style={styles.articleCardTextFull}>
+                  <View style={styles.articleMeta}>
+                    <ThemedText style={[styles.articleCategory, {
+                      color: CATEGORY_COLORS[article.category] ?? colors.accent,
+                    }]}>
+                      {(article.category ?? 'Heritage').toUpperCase()}
+                    </ThemedText>
+                    <View style={styles.metaDot} />
+                    <ThemedText style={styles.readTime}>
+                      {language === 'vi' ? '5 phút đọc' : language === 'km' ? '៥ នាទីអាន' : '5 min read'}
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={styles.articleTitleFull}>
+                    {article.title}
+                  </ThemedText>
+                </View>
+              </Pressable>
+            ))}
+
+            {filteredArticles.length === 0 && (
+              <View style={[styles.emptyState, { paddingHorizontal: Spacing.containerMargin }]}>
+                <IconSymbol name="doc.text" size={32} color={colors.textTertiary} />
+                <ThemedText style={styles.emptyText}>{t.common.noResults}</ThemedText>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Bottom padding for tab bar */}
+        <View style={{ height: 120 }} />
+      </Animated.ScrollView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
+const getStyles = (C: typeof Colors.dark, scheme: string) => StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: C.background,
+  },
+
+  scrollContent: {
+    paddingBottom: 0,
+  },
+
+  // ── Statistics Section ────────────────────────────
+  statsSection: {
+    paddingHorizontal: Spacing.containerMargin,
+    marginBottom: Spacing.lg,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: Spacing.xs + 2,
+    justifyContent: 'space-between',
+  },
+  statCard: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: BorderRadius.md,
+    borderWidth: 0.5,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  statIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
+  statContent: {
+    flex: 1,
+  },
+  statNumber: {
+    fontFamily: FontFamily.playfairBold,
+    fontSize: 16,
+    color: C.primary,
+    lineHeight: 18,
+  },
+  statLabel: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 9,
+    color: C.textSecondary,
+    lineHeight: 11,
+  },
+
+  // ── Hero ──────────────────────────────────────────
+  heroSection: {
+    width: SCREEN_WIDTH,
+    height: HERO_HEIGHT,
+    overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroGradient: {
+    ...StyleSheet.absoluteFillObject,
+    top: '60%',
+    backgroundColor: 'rgba(0,0,0,0.75)',
+  },
+  heroContent: {
+    position: 'absolute',
+    bottom: 60,
+    left: 0,
+    right: 0,
+    paddingHorizontal: Spacing.containerMargin,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 30,
+    marginBottom: 4,
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  heroSub: {
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 12,
+    lineHeight: 17,
+    maxWidth: '85%',
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+
+  // ── Search ────────────────────────────────────────
+  searchSection: {
+    paddingHorizontal: Spacing.containerMargin,
+    marginTop: -28,
+    zIndex: 10,
+    marginBottom: Spacing.md,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: scheme === 'light' ? 'rgba(243, 237, 226, 0.9)' : 'rgba(30,30,30,0.85)',
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderWidth: 0.5,
+    borderColor: `${C.primary}20`,
+    ...Platform.select({
+      web: { boxShadow: '0 8px 20px rgba(0,0,0,0.4)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+        elevation: 8,
+      },
+    }),
+  },
+  searchBarFocused: {
+    borderColor: `${C.primary}40`,
+    ...Platform.select({
+      web: { boxShadow: '0 0 20px rgba(212,175,55,0.15)' },
+      default: {
+        shadowColor: '#D4AF37',
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+      },
+    }),
+  },
+  searchInput: {
+    flex: 1,
+    color: C.text,
+    fontFamily: FontFamily.inter,
+    fontSize: 15,
+    padding: 0,
+    height: 24,
+  },
+
+  // ── Admin shortcut ────────────────────────────────
+  adminRow: {
+    paddingHorizontal: Spacing.containerMargin,
+    marginBottom: Spacing.md,
+  },
+  adminBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    alignSelf: 'flex-start',
+    backgroundColor: `${C.primary}15`,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.full,
+    borderWidth: 0.5,
+    borderColor: `${C.primary}30`,
+  },
+  adminBtnText: {
+    ...Typography.labelMedium,
+    color: C.primary,
+  },
+
+  // ── Section ───────────────────────────────────────
+  section: {
+    marginBottom: Spacing.xl,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingHorizontal: Spacing.containerMargin,
+    marginBottom: Spacing.md,
+  },
+  sectionTitle: {
+    ...Typography.headlineLarge,
+    color: C.text,
+  },
+  seeAll: {
+    ...Typography.labelLarge,
+    color: C.primary,
+  },
+
+  // ── Heritage Cards ────────────────────────────────
+  hScroll: {
+    paddingHorizontal: Spacing.containerMargin,
+    gap: Spacing.md,
+  },
+  heritageCard: {
+    width: 220,
+    height: 290,
+    borderRadius: BorderRadius.xxl,
+    overflow: 'hidden',
+    borderWidth: 0.5,
+    borderColor: `${C.primary}30`,
+    ...Shadows.large,
+  },
+  heritageCardInner: {
+    width: 220,
+    height: 290,
+  },
+  skeletonCard: {
+    backgroundColor: C.surfaceHigh,
+  },
+  heritageCardImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 220,
+    height: 290,
+    backgroundColor: '#8B7355',
+  },
+  heritageCardContent: {
+    position: 'absolute',
     bottom: 0,
     left: 0,
-    position: 'absolute',
+    right: 0,
+    padding: Spacing.md,
+    paddingTop: Spacing.xl + 8,
+  },
+  provinceTag: {
+    backgroundColor: `${C.primary}25`,
+    borderWidth: 0.5,
+    borderColor: `${C.primary}40`,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+    marginBottom: Spacing.xs,
+  },
+  provinceTagText: {
+    ...Typography.labelSmall,
+    color: C.primary,
+  },
+  heritageCardName: {
+    ...Typography.headlineSmall,
+    color: '#FFFFFF', // Always white so it is readable on dark overlay
+    marginBottom: Spacing.xs,
+    lineHeight: 26,
+  },
+  heritageCardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  heritageCardDist: {
+    ...Typography.labelSmall,
+    color: 'rgba(255, 255, 255, 0.75)', // Always white/translucent
+  },
+
+  // ── Article List ──────────────────────────────────
+  articleList: {
+    gap: Spacing.xl,
+    marginTop: Spacing.md,
+  },
+  articleCardFull: {
+    width: SCREEN_WIDTH,
+  },
+  articleCardImageFull: {
+    width: SCREEN_WIDTH,
+    height: 220,
+  },
+  articleCardTextFull: {
+    paddingHorizontal: Spacing.containerMargin,
+    paddingTop: Spacing.md,
+    gap: 6,
+  },
+  articleMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  articleCategory: {
+    ...Typography.labelSmall,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    fontWeight: '700',
+  },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: C.border,
+  },
+  readTime: {
+    ...Typography.labelSmall,
+    color: `${C.textSecondary}80`,
+  },
+  articleTitleFull: {
+    fontFamily: FontFamily.playfairBold,
+    color: C.text,
+    fontSize: 20,
+    lineHeight: 27,
+  },
+
+  // ── Empty ─────────────────────────────────────────
+  emptyState: {
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xl,
+  },
+  emptyText: {
+    ...Typography.bodyMedium,
+    color: C.textTertiary,
   },
 });

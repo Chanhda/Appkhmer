@@ -6,12 +6,14 @@ export type ThemedTextProps = TextProps & {
   lightColor?: string;
   darkColor?: string;
   type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
+  className?: string;
 };
 
 export function ThemedText({
   style,
   lightColor,
   darkColor,
+  className,
   type = 'default',
   ...rest
 }: ThemedTextProps) {
@@ -28,6 +30,8 @@ export function ThemedText({
         type === 'link' ? styles.link : undefined,
         style,
       ]}
+      allowFontScaling={false}
+      className={className}
       {...rest}
     />
   );
@@ -55,6 +59,6 @@ const styles = StyleSheet.create({
   link: {
     lineHeight: 30,
     fontSize: 16,
-    color: '#0a7ea4',
+    color: '#7B1113',
   },
 });
