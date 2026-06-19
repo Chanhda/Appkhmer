@@ -2,6 +2,7 @@ import { BorderRadius, Colors, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
 import {
+    Platform,
     Pressable,
     StyleSheet,
     View,
@@ -34,7 +35,14 @@ export function Card({
       case 'elevated':
         return {
           backgroundColor: colors.card,
-          ...Shadows.medium,
+          ...Platform.select({
+            ios: Shadows.medium,
+            web: Shadows.medium,
+            default: {
+              borderWidth: 0.5,
+              borderColor: colorScheme === 'light' ? 'rgba(182, 139, 30, 0.15)' : 'rgba(242, 202, 80, 0.15)',
+            },
+          }),
         };
       case 'outlined':
         return {
@@ -49,8 +57,9 @@ export function Card({
     }
   };
 
-  const cardStyle = [
+  const cardStyle: StyleProp<ViewStyle> = [
     styles.card,
+    variant === 'elevated' && { overflow: 'visible' as const },
     getVariantStyles(),
     { padding: Spacing[padding] },
     style,
@@ -60,7 +69,7 @@ export function Card({
     return (
       <Pressable
         style={({ pressed }) => [
-          ...cardStyle,
+          cardStyle,
           pressed && styles.pressed,
         ]}
         {...props}

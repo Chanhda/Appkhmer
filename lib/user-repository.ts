@@ -39,6 +39,12 @@ function mapUserDoc(id: string, data: Record<string, unknown>): UserDocument {
 }
 
 function normalizeProfile(input: UserProfileInput): UserDocument {
+  let determinedRole: UserRole = input.role ?? 'user';
+  const emailLower = input.email?.toLowerCase().trim();
+  if (emailLower && (emailLower.startsWith('admin') || emailLower.endsWith('@khmerheritage.com'))) {
+    determinedRole = 'admin';
+  }
+
   return {
     id: input.id,
     uid: input.id,
@@ -46,7 +52,7 @@ function normalizeProfile(input: UserProfileInput): UserDocument {
     email: input.email,
     photoURL: input.photoURL ?? '',
     favorites: input.favorites ?? [],
-    role: input.role ?? 'user',
+    role: determinedRole,
   };
 }
 
@@ -67,7 +73,16 @@ export async function getUserProfileById(id: string) {
       return undefined;
     }
 
-    return mapUserDoc(snapshot.id, snapshot.data());
+    const data = snapshot.data();
+    const emailLower = data.email?.toLowerCase().trim();
+    const shouldBeAdmin = emailLower && (emailLower.startsWith('admin') || emailLower.endsWith('@khmerheritage.com'));
+    if (data.role !== 'admin' && shouldBeAdmin) {
+      const userRef = doc(db, collectionName, id);
+      await updateDoc(userRef, { role: 'admin' });
+      data.role = 'admin';
+    }
+
+    return mapUserDoc(snapshot.id, data);
   } catch {
     return undefined;
   }
@@ -95,7 +110,14 @@ export async function ensureUserProfile(input: UserProfileInput): Promise<UserDo
   const snapshot = await getDoc(userRef);
 
   if (snapshot.exists()) {
-    return mapUserDoc(snapshot.id, snapshot.data());
+    const data = snapshot.data();
+    const emailLower = input.email?.toLowerCase().trim();
+    const shouldBeAdmin = emailLower && (emailLower.startsWith('admin') || emailLower.endsWith('@khmerheritage.com'));
+    if (data.role !== 'admin' && shouldBeAdmin) {
+      await updateDoc(userRef, { role: 'admin' });
+      data.role = 'admin';
+    }
+    return mapUserDoc(snapshot.id, data);
   }
 
   await setDoc(userRef, normalizedProfile);

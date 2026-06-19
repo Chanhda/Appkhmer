@@ -3,6 +3,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
 import {
     ActivityIndicator,
+    Platform,
     Pressable,
     StyleSheet,
     Text,
@@ -130,7 +131,11 @@ export function Button({
         fullWidth && styles.fullWidth,
         (disabled || loading) && styles.disabled,
         pressed && styles.pressed,
-        variant !== 'ghost' && Shadows.medium,
+        variant !== 'ghost' && Platform.select({
+          ios: Shadows.medium,
+          web: Shadows.medium,
+          default: {},
+        }),
         style,
       ]}
       {...props}

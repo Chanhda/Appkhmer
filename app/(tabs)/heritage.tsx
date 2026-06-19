@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -22,6 +22,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { type HeritageDocument, fetchHeritages } from '@/lib/heritage-repository';
 import { useLanguage } from '@/contexts/language-context';
 import { useAuthSession } from '@/lib/auth-session';
+import { getHeritageImageSource } from '@/constants/image-resolver';
 
 export default function HeritageScreen() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function HeritageScreen() {
   const { firebaseUser } = useAuthSession();
   const { t, language } = useLanguage();
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const C = Colors[colorScheme ?? 'dark'];
   const styles = getStyles(C, colorScheme ?? 'dark');
   const [heritages, setHeritages] = useState<HeritageDocument[]>([]);
@@ -78,16 +80,18 @@ export default function HeritageScreen() {
     { key: 'intangible' as const, label: t.heritage.types.intangible },
   ];
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await fetchHeritages();
-        setHeritages(data);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        try {
+          const data = await fetchHeritages();
+          setHeritages(data);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }, [])
+  );
 
   const filtered = heritages.filter(h => {
     const matchSearch = !search || h.title.toLowerCase().includes(search.toLowerCase())
@@ -101,42 +105,6 @@ export default function HeritageScreen() {
       {/* Header */}
       <Animated.View entering={FadeIn.duration(400)} style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
         <ThemedText style={styles.headerTitle}>{t.heritage.title}</ThemedText>
-        <Pressable
-          style={({ pressed }) => [styles.newArticleBtn, pressed && { opacity: 0.8 }]}
-          onPress={() => {
-            if (!firebaseUser) {
-              if (Platform.OS === 'web') {
-                const confirmLogin = confirm(
-                  language === 'vi' 
-                    ? 'Bạn cần đăng nhập để đóng góp di sản. Đăng nhập ngay?' 
-                    : language === 'km' 
-                      ? 'អ្នកត្រូវតែចូលគណនីដើម្បីចូលរួមចំណែក។ ចូលឥឡូវនេះ?' 
-                      : 'You need to sign in to contribute. Sign in now?'
-                );
-                if (confirmLogin) router.push({ pathname: '/auth', params: { redirectTo: '/articles/new' } });
-              } else {
-                showAlert(
-                  language === 'vi' ? 'Yêu cầu đăng nhập' : language === 'km' ? 'តម្រូវឱ្យចូលគណនី' : 'Login Required',
-                  language === 'vi' ? 'Bạn cần đăng nhập để đóng góp di sản.' : language === 'km' ? 'អ្នកត្រូវតែចូលគណនីដើម្បីចូលរួមចំណែក។' : 'You need to sign in to contribute.',
-                  'warning',
-                  () => {
-                    setAlertConfig(prev => ({ ...prev, visible: false }));
-                    router.push({ pathname: '/auth', params: { redirectTo: '/articles/new' } });
-                  },
-                  language === 'vi' ? 'Đăng nhập' : language === 'km' ? 'ចូល' : 'Sign In',
-                  language === 'vi' ? 'Hủy' : language === 'km' ? 'បោះបង់' : 'Cancel'
-                );
-              }
-            } else {
-              router.push('/articles/new');
-            }
-          }}
-        >
-          <IconSymbol name="plus" size={12} color={colorScheme === 'light' ? '#F9F6F0' : '#131313'} />
-          <Text style={styles.newArticleBtnText}>
-            {language === 'vi' ? 'Đóng góp' : language === 'km' ? 'ចូលរួមចំណែក' : 'Contribute'}
-          </Text>
-        </Pressable>
       </Animated.View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -193,37 +161,45 @@ export default function HeritageScreen() {
             {filtered.map((h, idx) => (
               <Animated.View key={h.id} entering={FadeInDown.delay(250 + idx * 40).duration(400)}>
                 <Pressable
-                  style={({ pressed }) => [styles.heritageCard, pressed && { opacity: 0.85 }]}
                   onPress={() => router.push(`/heritage/${h.id}`)}
                 >
-                  {/* Image */}
-                  <View style={styles.cardThumb}>
-                    <Image
-                      source={{ uri: h.coverImage ?? 'https://images.unsplash.com/photo-1549692520-acc6669e2f0c?auto=format&fit=crop&w=400&q=80' }}
-                      style={StyleSheet.absoluteFill}
-                      resizeMode="cover"
-                    />
-                  </View>
-
-                  {/* Content */}
-                  <View style={styles.cardContent}>
-                    {/* Badge and Location Row */}
-                    <View style={styles.cardHeaderRow}>
-                      <View style={[styles.typeBadge, h.type === 'intangible' && styles.typeBadgeTeal]}>
-                        <ThemedText style={[styles.typeBadgeText, h.type === 'intangible' && { color: C.accent }]}>
-                          {h.type === 'tangible' ? t.heritage.types.tangible.toUpperCase() : h.type === 'intangible' ? t.heritage.types.intangible.toUpperCase() : 'DI SẢN'}
-                        </ThemedText>
+                  {({ pressed }) => (
+                    <View
+                      style={StyleSheet.flatten([
+                        styles.heritageCard,
+                        pressed && { opacity: 0.85 }
+                      ])}
+                    >
+                      {/* Image */}
+                      <View style={[styles.cardThumb, { backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(182, 139, 30, 0.04)' }]}>
+                        <Image
+                          source={getHeritageImageSource(h.id, h.coverImage, h.type)}
+                          style={[StyleSheet.absoluteFill, { borderTopLeftRadius: BorderRadius.xl, borderTopRightRadius: BorderRadius.xl }]}
+                          resizeMode="cover"
+                        />
                       </View>
 
-                      <View style={styles.cardMeta}>
-                        <IconSymbol name="location.fill" size={11} color={C.textTertiary} />
-                        <ThemedText style={styles.cardMetaText}>{h.province ?? 'Nam Bộ'}</ThemedText>
+                      {/* Content */}
+                      <View style={styles.cardContent}>
+                        {/* Badge and Location Row */}
+                        <View style={styles.cardHeaderRow}>
+                          <View style={[styles.typeBadge, h.type === 'intangible' && styles.typeBadgeTeal]}>
+                            <ThemedText style={[styles.typeBadgeText, h.type === 'intangible' && { color: C.accent }]}>
+                              {h.type === 'tangible' ? t.heritage.types.tangible.toUpperCase() : h.type === 'intangible' ? t.heritage.types.intangible.toUpperCase() : 'DI SẢN'}
+                            </ThemedText>
+                          </View>
+
+                          <View style={styles.cardMeta}>
+                            <IconSymbol name="location.fill" size={11} color={C.textTertiary} />
+                            <ThemedText style={styles.cardMetaText}>{h.province ?? 'Nam Bộ'}</ThemedText>
+                          </View>
+                        </View>
+
+                        <ThemedText style={styles.cardTitle} numberOfLines={2}>{h.title}</ThemedText>
+                        <ThemedText style={styles.cardSubtitle} numberOfLines={2}>{h.subtitle ?? h.description}</ThemedText>
                       </View>
                     </View>
-
-                    <ThemedText style={styles.cardTitle} numberOfLines={2}>{h.title}</ThemedText>
-                    <ThemedText style={styles.cardSubtitle} numberOfLines={2}>{h.subtitle ?? h.description}</ThemedText>
-                  </View>
+                  )}
                 </Pressable>
               </Animated.View>
             ))}
@@ -271,14 +247,6 @@ const getStyles = (C: typeof Colors.dark, scheme: string) => StyleSheet.create({
     borderBottomWidth: 0.5, borderBottomColor: `${C.border}40`,
   },
   headerTitle: { ...Typography.headlineMedium, color: C.primary },
-  newArticleBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: C.primary,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.md, paddingVertical: 7,
-    ...Shadows.goldGlow,
-  },
-  newArticleBtnText: { ...Typography.labelMedium, color: scheme === 'light' ? '#F9F6F0' : '#131313', fontWeight: '700' },
 
   scrollContent: { paddingBottom: 110 },
 
@@ -319,16 +287,23 @@ const getStyles = (C: typeof Colors.dark, scheme: string) => StyleSheet.create({
 
   heritageCard: {
     flexDirection: 'column',
-    backgroundColor: scheme === 'light' ? 'rgba(243, 237, 226, 0.6)' : 'rgba(30,30,30,0.6)',
-    borderWidth: 0.5, borderColor: `${C.primary}20`,
-    borderRadius: BorderRadius.xl, overflow: 'hidden',
-    ...Shadows.medium,
+    backgroundColor: scheme === 'light' ? '#FFFFFF' : C.backgroundSecondary,
+    borderWidth: 0.5,
+    borderColor: scheme === 'light' ? 'rgba(182, 139, 30, 0.15)' : 'rgba(242, 202, 80, 0.15)',
+    borderRadius: BorderRadius.xl,
+    ...Platform.select({
+      ios: Shadows.medium,
+      web: Shadows.medium,
+      default: {},
+    }),
     position: 'relative',
   },
   cardThumb: {
     width: '100%', height: 200,
     overflow: 'hidden',
     backgroundColor: C.surfaceHigh,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
   },
   cardContent: {
     width: '100%',

@@ -1,5 +1,5 @@
-import { useRouter, type Href } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRouter, type Href, useFocusEffect } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,10 +15,13 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CustomAlert } from '@/components/ui/custom-alert';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Button } from '@/components/ui/button';
 import { BorderRadius, Colors, Shadows, Spacing, Typography, FontFamily } from '@/constants/theme';
 import { useColorSchemePreference } from '@/contexts/color-scheme-context';
+import { useLanguage } from '@/contexts/language-context';
 import {
   approveArticle,
   deleteArticle,
@@ -29,15 +32,55 @@ import {
   type ArticleStatus,
 } from '@/lib/article-repository';
 import { useRequireAdmin } from '@/lib/auth-session';
+import { getArticleImageSource } from '@/constants/image-resolver';
 
 type TabType = 'pending' | 'published' | 'rejected';
 
+const hexToRgba = (hex: string, alpha: number) => {
+  const cleanHex = hex.replace('#', '');
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring( cleanHex.length === 3 ? 2 : 4, cleanHex.length === 3 ? 3 : 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 const FILTER_CATEGORIES = ['Tất cả', 'Lễ hội', 'Kiến trúc', 'Ẩm thực', 'Nghệ thuật', 'Cộng đồng', 'Du lịch'];
+
+const categoryLabelMap: Record<string, Record<string, string>> = {
+  vi: {
+    'Tất cả': 'Tất cả',
+    'Lễ hội': 'Lễ hội',
+    'Kiến trúc': 'Kiến trúc',
+    'Ẩm thực': 'Ẩm thực',
+    'Nghệ thuật': 'Nghệ thuật',
+    'Cộng đồng': 'Cộng đồng',
+    'Du lịch': 'Du lịch'
+  },
+  km: {
+    'Tất cả': 'ទាំងអស់',
+    'Lễ hội': 'ពិធីបុណ្យ',
+    'Kiến trúc': 'ស្ថាបត្យកម្ម',
+    'Ẩm thực': 'ម្ហូបអាហារ',
+    'Nghệ thuật': 'សិល្បៈ',
+    'Cộng đồng': 'សហគមន៍',
+    'Du lịch': 'ទេសចរណ៍'
+  },
+  en: {
+    'Tất cả': 'All',
+    'Lễ hội': 'Festival',
+    'Kiến trúc': 'Architecture',
+    'Ẩm thực': 'Cuisine',
+    'Nghệ thuật': 'Art',
+    'Cộng đồng': 'Community',
+    'Du lịch': 'Tourism'
+  }
+};
 
 export default function AdminArticlesScreen() {
   const { loading: authLoading } = useRequireAdmin();
   const router = useRouter();
   const { resolvedColorScheme } = useColorSchemePreference();
+  const { t, language } = useLanguage();
   const C = Colors[resolvedColorScheme];
   const isDark = resolvedColorScheme === 'dark';
   const insets = useSafeAreaInsets();
@@ -50,9 +93,77 @@ export default function AdminArticlesScreen() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadArticles();
-  }, []);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'info' | 'warning';
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void;
+    onClose?: () => void;
+    options?: {
+      text: string;
+      onPress: () => void;
+      style?: 'cancel' | 'destructive' | 'default';
+    }[];
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    type: 'success' | 'error' | 'info' | 'warning' = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    cancelText?: string,
+    onClose?: () => void,
+    options?: {
+      text: string;
+      onPress: () => void;
+      style?: 'cancel' | 'destructive' | 'default';
+    }[]
+  ) => {
+    setAlertConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      onConfirm,
+      confirmText,
+      cancelText,
+      onClose,
+      options,
+    });
+  };
+
+  const btnStyles = {
+    view: {
+      bg: isDark ? 'rgba(127, 222, 221, 0.15)' : '#E0F2F1',
+      border: isDark ? 'rgba(127, 222, 221, 0.3)' : '#B2DFDB',
+      text: isDark ? '#7FDEDD' : '#007073',
+    },
+    edit: {
+      bg: isDark ? 'rgba(242, 202, 80, 0.15)' : '#FEF3C7',
+      border: isDark ? 'rgba(242, 202, 80, 0.3)' : '#FDE68A',
+      text: isDark ? '#F2CA50' : '#B68B1E',
+    },
+    delete: {
+      bg: isDark ? 'rgba(255, 180, 171, 0.15)' : '#FEE2E2',
+      border: isDark ? 'rgba(255, 180, 171, 0.3)' : '#FCA5A5',
+      text: isDark ? '#FFB4AB' : '#BA1A1A',
+    },
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadArticles();
+    }, [])
+  );
 
   const loadArticles = async () => {
     try {
@@ -102,7 +213,7 @@ export default function AdminArticlesScreen() {
         prev.map(a => a.id === article.id ? { ...a, status: 'published', published: true } : a)
       );
     } catch {
-      Alert.alert('Lỗi', 'Không thể duyệt bài viết.');
+      showAlert(t.admin.alerts.error, t.admin.alerts.approveError, 'error');
     } finally {
       setTogglingId(null);
     }
@@ -121,31 +232,47 @@ export default function AdminArticlesScreen() {
           )
         );
       } catch {
-        Alert.alert('Lỗi', 'Không thể từ chối bài viết.');
+        showAlert(t.admin.alerts.error, t.admin.alerts.rejectError, 'error');
       } finally {
         setRejectingId(null);
       }
     };
 
     if (Platform.OS === 'web') {
-      const reason = prompt(`Lý do từ chối bài "${article.title}" (bỏ trống = mặc định):`);
+      const promptMsg = language === 'vi' ? `Lý do từ chối bài "${article.title}" (bỏ trống = mặc định):`
+        : language === 'km' ? `មូលហេតុបដិសេធអត្ថបទ "${article.title}" (ទុកទទេ = លំនាំដើម):`
+        : `Reason for rejecting article "${article.title}" (leave empty = default):`;
+      const reason = prompt(promptMsg);
       if (reason !== null) doReject(reason || undefined);
     } else {
-      Alert.alert(
-        'Từ chối bài viết',
-        `Từ chối bài "${article.title}"?`,
+      showAlert(
+        t.admin.alerts.rejectTitle,
+        `${t.admin.alerts.rejectMsg} "${article.title}"?`,
+        'warning',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         [
-          { text: 'Hủy', style: 'cancel' },
           {
-            text: 'Từ chối (Không phù hợp)',
+            text: t.admin.alerts.rejectOptionAppropriate,
             style: 'destructive',
-            onPress: () => doReject('Nội dung không phù hợp với tiêu chí đăng tải'),
+            onPress: () => doReject(
+              language === 'vi' ? 'Nội dung không phù hợp với tiêu chí đăng tải'
+              : language === 'km' ? 'មាតិកាមិនសមស្របនឹងលក្ខណៈវិនិច្ឆ័យបោះពុម្ពផ្សាយ'
+              : 'Content is not suitable for publication criteria'
+            ),
           },
           {
-            text: 'Từ chối (Cần chỉnh sửa)',
+            text: t.admin.alerts.rejectOptionEdit,
             style: 'destructive',
-            onPress: () => doReject('Bài viết cần được chỉnh sửa và bổ sung thêm'),
+            onPress: () => doReject(
+              language === 'vi' ? 'Bài viết cần được chỉnh sửa và bổ sung thêm'
+              : language === 'km' ? 'អត្ថបទត្រូវការការកែសម្រួលនិងបន្ថែម'
+              : 'Article needs to be edited and supplemented'
+            ),
           },
+          { text: t.admin.alerts.cancel, style: 'cancel', onPress: () => {} },
         ]
       );
     }
@@ -167,7 +294,7 @@ export default function AdminArticlesScreen() {
         )
       );
     } catch {
-      Alert.alert('Lỗi', 'Không thể thay đổi trạng thái bài viết.');
+      showAlert(t.admin.alerts.error, t.admin.alerts.togglePublishError, 'error');
     } finally {
       setTogglingId(null);
     }
@@ -179,17 +306,25 @@ export default function AdminArticlesScreen() {
       try {
         await deleteArticle(articleId);
         setAllArticles(prev => prev.filter(a => a.id !== articleId));
+        showAlert(t.admin.alerts.success, t.admin.alerts.deleteSuccess, 'success');
       } catch {
-        Alert.alert('Lỗi', 'Không thể xóa bài viết!');
+        showAlert(t.admin.alerts.error, t.admin.alerts.deleteError, 'error');
       }
     };
     if (Platform.OS === 'web') {
-      if (confirm(`Xóa bài viết "${title}"?`)) doDelete();
+      const confirmMsg = language === 'vi' ? `Xóa bài viết "${title}"?`
+        : language === 'km' ? `លុបអត្ថបទ "${title}"?`
+        : `Delete article "${title}"?`;
+      if (confirm(confirmMsg)) doDelete();
     } else {
-      Alert.alert('Xác nhận xóa', `Xóa bài "${title}"?`, [
-        { text: 'Hủy', style: 'cancel' },
-        { text: 'Xóa', style: 'destructive', onPress: doDelete },
-      ]);
+      showAlert(
+        t.admin.alerts.confirmDeleteTitle,
+        `${t.admin.alerts.confirmDeleteMsg} "${title}"?`,
+        'warning',
+        doDelete,
+        t.admin.alerts.delete,
+        t.admin.alerts.cancel
+      );
     }
   };
 
@@ -198,7 +333,7 @@ export default function AdminArticlesScreen() {
       <View style={[styles.screen, { backgroundColor: C.background }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={C.primary} />
-          <Text style={[styles.loadingText, { color: C.textSecondary }]}>Đang tải bài viết...</Text>
+          <Text style={[styles.loadingText, { color: C.textSecondary }]}>{t.admin.loading}</Text>
         </View>
       </View>
     );
@@ -212,7 +347,7 @@ export default function AdminArticlesScreen() {
         style={[
           styles.stickyHeader,
           {
-            backgroundColor: isDark ? 'rgba(19,19,19,0.95)' : 'rgba(245,240,230,0.97)',
+            backgroundColor: isDark ? 'rgba(19,19,19,0.95)' : 'rgba(249,246,240,0.97)',
             borderBottomColor: `${C.border}40`,
             paddingTop: Math.max(insets.top, 12),
           },
@@ -225,7 +360,7 @@ export default function AdminArticlesScreen() {
           >
             <IconSymbol name="chevron.left" size={18} color={C.primary} />
           </Pressable>
-          <Text style={[styles.headerTitle, { color: C.primary }]}>Quản lý Bài viết</Text>
+          <Text style={[styles.headerTitle, { color: C.primary }]}>{t.admin.articlesTitle}</Text>
           <View style={[styles.headerBadge, { backgroundColor: `${C.primary}20`, borderColor: `${C.primary}40` }]}>
             <Text style={[styles.headerBadgeText, { color: C.primary }]}>{allArticles.length}</Text>
           </View>
@@ -240,30 +375,47 @@ export default function AdminArticlesScreen() {
       >
         {/* Add New Button */}
         <Animated.View entering={FadeInDown.delay(60).duration(500)}>
-          <Pressable
-            style={({ pressed }) => [styles.addNewBtn, { backgroundColor: C.primary }, pressed && { opacity: 0.9 }]}
+          <Button
+            variant="primary"
+            size="large"
+            fullWidth
             onPress={() => router.push('/admin/articles/new' as Href)}
+            icon={<IconSymbol name="plus" size={16} color="#131313" />}
+            iconPosition="left"
+            style={{ backgroundColor: C.primary }}
+            textStyle={{ color: '#131313', fontWeight: '800' }}
           >
-            <IconSymbol name="plus" size={18} color="#131313" />
-            <Text style={styles.addNewBtnText}>Thêm bài viết mới</Text>
-          </Pressable>
+            {t.admin.addNewArticle}
+          </Button>
         </Animated.View>
 
         {/* ── Tabs ── */}
         <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.tabsWrap}>
           {([
-            { key: 'pending', label: 'Chờ duyệt', count: pendingArticles.length },
-            { key: 'published', label: 'Đã đăng', count: publishedArticles.length },
-            { key: 'rejected', label: 'Từ chối', count: rejectedArticles.length },
+            { key: 'pending', label: t.admin.tabPending, count: pendingArticles.length },
+            { key: 'published', label: t.admin.tabPublished, count: publishedArticles.length },
+            { key: 'rejected', label: t.admin.tabRejected, count: rejectedArticles.length },
           ] as const).map(tab => {
             const active = activeTab === tab.key;
             return (
               <Pressable
                 key={tab.key}
-                style={[styles.tabPill, { borderColor: C.border }, active && { backgroundColor: C.primary, borderColor: C.primary }]}
+                style={[
+                  styles.tabPill, 
+                  { 
+                    borderColor: active ? C.primary : `${C.border}40`,
+                    backgroundColor: active ? C.primary : 'transparent',
+                  }
+                ]}
                 onPress={() => setActiveTab(tab.key)}
               >
-                <Text style={[styles.tabPillText, { color: C.textTertiary }, active && { color: '#131313', fontWeight: '700' }]}>
+                <Text style={[
+                  styles.tabPillText, 
+                  { 
+                    color: active ? '#131313' : C.textTertiary,
+                    fontWeight: active ? '800' : '500',
+                  }
+                ]}>
                   {tab.label}
                   {tab.count > 0 ? ` (${tab.count})` : ''}
                 </Text>
@@ -274,18 +426,26 @@ export default function AdminArticlesScreen() {
 
         {/* Search */}
         <Animated.View entering={FadeInDown.delay(130).duration(500)}>
-          <View style={[styles.searchBar, { backgroundColor: isDark ? 'rgba(30,30,30,0.6)' : 'rgba(255,255,255,0.7)', borderColor: `${C.primary}25` }]}>
-            <IconSymbol name="magnifyingglass" size={16} color={C.textTertiary} />
+          <View
+            style={[
+              styles.searchBar, 
+              { 
+                backgroundColor: isDark ? 'rgba(30,30,30,0.5)' : '#FFFFFF', 
+                borderColor: isDark ? 'rgba(242, 202, 80, 0.25)' : 'rgba(182, 139, 30, 0.3)' 
+              }
+            ]}
+          >
+            <IconSymbol name="magnifyingglass" size={15} color={C.textTertiary} />
             <TextInput
               style={[styles.searchInput, { color: C.text }]}
-              placeholder="Tìm kiếm tiêu đề, tác giả..."
+              placeholder={t.admin.searchPlaceholderArticles}
               placeholderTextColor={C.textTertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <Pressable onPress={() => setSearchQuery('')}>
-                <IconSymbol name="xmark.circle.fill" size={16} color={C.textTertiary} />
+                <IconSymbol name="xmark.circle.fill" size={15} color={C.textTertiary} />
               </Pressable>
             )}
           </View>
@@ -301,11 +461,19 @@ export default function AdminArticlesScreen() {
                   <Pressable key={cat} onPress={() => setSelectedCategory(cat)}>
                     <View style={[
                       styles.filterChip,
-                      { backgroundColor: isDark ? 'rgba(30,30,30,0.5)' : 'rgba(255,255,255,0.7)', borderColor: C.border },
-                      active && { backgroundColor: `${C.primary}20`, borderColor: C.primary },
+                      { 
+                        backgroundColor: active ? C.primary : (isDark ? 'rgba(30,30,30,0.4)' : '#FFFFFF'), 
+                        borderColor: active ? C.primary : `${C.border}30`,
+                      },
                     ]}>
-                      <Text style={[styles.filterChipText, { color: C.textSecondary }, active && { color: C.primary, fontWeight: '700' }]}>
-                        {cat}
+                      <Text style={[
+                        styles.filterChipText, 
+                        { 
+                          color: active ? '#131313' : C.textSecondary,
+                          fontWeight: active ? '800' : '600'
+                        }
+                      ]}>
+                        {categoryLabelMap[language][cat] || cat}
                       </Text>
                     </View>
                   </Pressable>
@@ -320,36 +488,48 @@ export default function AdminArticlesScreen() {
           {/* Result count / Refresh */}
           <View style={styles.resultRow}>
             <Text style={[styles.resultCount, { color: C.textTertiary }]}>
-              Tìm thấy {filteredArticles.length} bài viết
+              {t.admin.resultCountArticles.replace('{count}', filteredArticles.length.toString())}
             </Text>
             <Pressable onPress={loadArticles} style={styles.refreshBtn}>
               <IconSymbol name="arrow.clockwise" size={13} color={C.primary} />
-              <Text style={[styles.refreshText, { color: C.primary }]}>Làm mới</Text>
+              <Text style={[styles.refreshText, { color: C.primary }]}>{t.admin.refresh}</Text>
             </Pressable>
           </View>
 
           {/* Empty state */}
           {filteredArticles.length === 0 ? (
             <Animated.View entering={FadeInDown.duration(500)}>
-              <View style={[styles.emptyCard, { backgroundColor: isDark ? 'rgba(30,30,30,0.4)' : 'rgba(255,255,255,0.7)', borderColor: C.border }]}>
+              <View style={[
+                styles.emptyCard, 
+                { 
+                  backgroundColor: isDark ? 'rgba(30,30,30,0.3)' : 'rgba(255,255,255,0.5)', 
+                  borderColor: `${C.border}30` 
+                }
+              ]}>
                 <View style={[styles.emptyIconBg, { backgroundColor: C.backgroundTertiary }]}>
                   <IconSymbol
                     name={activeTab === 'pending' ? 'clock.fill' : activeTab === 'published' ? 'checkmark.circle' : 'xmark.circle'}
-                    size={36}
+                    size={32}
                     color={C.textTertiary}
                   />
                 </View>
                 <Text style={[styles.emptyTitle, { color: C.text }]}>
-                  {activeTab === 'pending' ? 'Không có bài chờ duyệt'
-                    : activeTab === 'published' ? 'Chưa có bài đã xuất bản'
-                    : 'Không có bài bị từ chối'}
+                  {activeTab === 'pending' ? t.admin.emptyPending
+                    : activeTab === 'published' ? t.admin.emptyPublished
+                    : t.admin.emptyRejected}
                 </Text>
                 <Text style={[styles.emptySubtitle, { color: C.textSecondary }]}>
                   {activeTab === 'pending'
-                    ? 'Khi người dùng gửi bài, bài viết sẽ xuất hiện ở đây để chờ duyệt.'
+                    ? (language === 'vi' ? 'Khi người dùng gửi bài, bài viết sẽ xuất hiện ở đây để chờ duyệt.'
+                       : language === 'km' ? 'នៅពេលអ្នកប្រើប្រាស់ផ្ញើអត្ថបទ វានឹងបង្ហាញនៅទីនេះដើម្បីរង់ចាំការអនុម័ត។'
+                       : 'When users submit articles, they will appear here pending approval.')
                     : activeTab === 'published'
-                    ? 'Chưa có bài viết nào được hiển thị cho người dùng.'
-                    : 'Các bài viết bị từ chối sẽ hiển thị ở đây.'}
+                    ? (language === 'vi' ? 'Chưa có bài viết nào được hiển thị cho người dùng.'
+                       : language === 'km' ? 'មិនទាន់មានអត្ថបទណាមួយត្រូវបានបង្ហាញជូនអ្នកប្រើប្រាស់នៅឡើយទេ។'
+                       : 'No articles are displayed to users yet.')
+                    : (language === 'vi' ? 'Các bài viết bị từ chối sẽ hiển thị ở đây.'
+                       : language === 'km' ? 'អត្ថបទដែលត្រូវបានបដិសេធនឹងបង្ហាញនៅទីនេះ។'
+                       : 'Rejected articles will be displayed here.')}
                 </Text>
               </View>
             </Animated.View>
@@ -357,9 +537,9 @@ export default function AdminArticlesScreen() {
             filteredArticles.map((article, index) => {
               const status = getStatus(article);
               const statusColors = {
-                pending: { bg: `${C.primary}18`, border: `${C.primary}30`, text: C.primary, label: 'CHỜ DUYỆT' },
-                published: { bg: `${C.accent}18`, border: `${C.accent}30`, text: C.accent, label: 'ĐÃ ĐĂNG' },
-                rejected: { bg: `${C.error}18`, border: `${C.error}30`, text: C.error, label: 'TỪ CHỐI' },
+                pending: { bg: `${C.primary}18`, border: `${C.primary}35`, text: C.primary, label: t.admin.statusBadgePending },
+                published: { bg: `${C.accent}18`, border: `${C.accent}35`, text: C.accent, label: t.admin.statusBadgePublished },
+                rejected: { bg: `${C.error}18`, border: `${C.error}35`, text: C.error, label: t.admin.statusBadgeRejected },
               };
               const sc = statusColors[status];
               return (
@@ -369,17 +549,11 @@ export default function AdminArticlesScreen() {
                 >
                   <View style={[
                     styles.articleCard,
-                    { backgroundColor: isDark ? 'rgba(30,30,30,0.6)' : 'rgba(255,255,255,0.8)', borderColor: `${C.primary}20` },
+                    { backgroundColor: isDark ? 'rgba(30,30,30,0.6)' : 'rgba(255,255,255,0.85)', borderColor: `${C.primary}15` },
                   ]}>
                     {/* Top Row: Thumbnail + Details */}
                     <View style={styles.cardTop}>
-                      {article.coverImage ? (
-                        <Image source={{ uri: article.coverImage }} style={styles.thumbnail} />
-                      ) : (
-                        <View style={[styles.thumbnailPlaceholder, { backgroundColor: C.backgroundTertiary, borderColor: C.border }]}>
-                          <IconSymbol name="newspaper" size={20} color={C.textTertiary} />
-                        </View>
-                      )}
+                      <Image source={getArticleImageSource(article.id, article.coverImage, article.category)} style={styles.thumbnail} />
                       <View style={styles.cardInfo}>
                         <View style={styles.cardHeaderRow}>
                           <View style={[styles.statusBadge, { backgroundColor: sc.bg, borderColor: sc.border }]}>
@@ -388,7 +562,9 @@ export default function AdminArticlesScreen() {
                             </Text>
                           </View>
                           <Text style={[styles.categoryBadgeText, { color: C.textTertiary }]}>
-                            {article.category ? article.category.toUpperCase() : 'BÀI VIẾT'}
+                            {article.category 
+                              ? (categoryLabelMap[language][article.category] || article.category).toUpperCase()
+                              : (language === 'vi' ? 'BÀI VIẾT' : language === 'km' ? 'អត្ថបទ' : 'ARTICLE')}
                           </Text>
                         </View>
                         <Text style={[styles.cardTitle, { color: C.text }]} numberOfLines={2}>
@@ -397,11 +573,11 @@ export default function AdminArticlesScreen() {
                         <View style={styles.authorRow}>
                           <IconSymbol name="person.fill" size={11} color={C.textTertiary} />
                           <Text style={[styles.metaText, { color: C.textSecondary }]}>
-                            {article.author || 'Ẩn danh'}
+                            {article.author || t.admin.authorAnonymous}
                           </Text>
                           <Text style={[styles.dotSep, { color: C.textTertiary }]}>•</Text>
                           <Text style={[styles.metaText, { color: C.textSecondary }]}>
-                            {article.date || (article.createdAt ? new Date(article.createdAt).toLocaleDateString('vi-VN') : '')}
+                            {article.date || (article.createdAt ? new Date(article.createdAt).toLocaleDateString(language === 'vi' ? 'vi-VN' : language === 'km' ? 'km-KH' : 'en-US') : '')}
                           </Text>
                         </View>
                       </View>
@@ -409,7 +585,7 @@ export default function AdminArticlesScreen() {
 
                     {/* Summary preview */}
                     {article.summary ? (
-                      <View style={[styles.summaryRow, { borderTopColor: `${C.border}60` }]}>
+                      <View style={[styles.summaryRow, { borderTopColor: `${C.border}30` }]}>
                         <Text style={[styles.summaryText, { color: C.textSecondary }]} numberOfLines={2}>
                           {article.summary}
                         </Text>
@@ -418,45 +594,84 @@ export default function AdminArticlesScreen() {
 
                     {/* Reject reason banner */}
                     {status === 'rejected' && article.rejectReason && (
-                      <View style={[styles.rejectReasonRow, { borderTopColor: `${C.border}60` }]}>
+                      <View style={[styles.rejectReasonRow, { borderTopColor: `${C.border}30` }]}>
                         <Text style={[styles.rejectReasonText, { color: C.error }]}>
-                          Lý do từ chối: {article.rejectReason}
+                          {t.admin.reasonLabel}{article.rejectReason}
                         </Text>
                       </View>
                     )}
 
                     {/* Action buttons — PENDING TAB */}
                     {status === 'pending' && (
-                      <View style={[styles.actionsRow, { borderTopColor: `${C.border}60` }]}>
+                      <View style={[styles.actionsRow, { borderTopColor: `${C.border}30` }]}>
                         {togglingId === article.id ? (
                           <View style={styles.loadingRow}>
                             <ActivityIndicator size="small" color={C.primary} />
-                            <Text style={[styles.processingText, { color: C.textSecondary }]}>Đang xử lý...</Text>
+                            <Text style={[styles.processingText, { color: C.textSecondary }]}>{t.admin.processing}</Text>
                           </View>
                         ) : (
                           <>
                             <Pressable
-                              style={({ pressed }) => [styles.actionBtn, styles.approveActionBtn, { backgroundColor: C.primary }, pressed && { opacity: 0.8 }]}
+                              style={{ flex: 1.5 }}
                               onPress={() => handleApprove(article)}
                             >
-                              <IconSymbol name="checkmark.circle.fill" size={14} color="#131313" />
-                              <Text style={styles.approveActionBtnText}>Duyệt bài</Text>
+                              {({ pressed }) => (
+                                <View
+                                  style={StyleSheet.flatten([
+                                    styles.actionBtn,
+                                    {
+                                      backgroundColor: pressed ? hexToRgba(C.primary, 0.8) : C.primary,
+                                      borderColor: hexToRgba(C.primary, 0.4),
+                                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                                    }
+                                  ])}
+                                >
+                                  <IconSymbol name="checkmark.circle.fill" size={14} color="#131313" />
+                                  <Text style={styles.approveActionBtnText}>{t.admin.actionApprove}</Text>
+                                </View>
+                              )}
                             </Pressable>
 
                             <Pressable
-                              style={({ pressed }) => [styles.actionBtn, styles.rejectActionBtn, { backgroundColor: `${C.error}18`, borderColor: `${C.error}40` }, pressed && { opacity: 0.8 }]}
+                              style={{ flex: 1 }}
                               onPress={() => handleReject(article)}
                             >
-                              <IconSymbol name="xmark.circle.fill" size={14} color={C.error} />
-                              <Text style={[styles.rejectActionBtnText, { color: C.error }]}>Từ chối</Text>
+                              {({ pressed }) => (
+                                <View
+                                  style={StyleSheet.flatten([
+                                    styles.actionBtn,
+                                    {
+                                      backgroundColor: pressed ? btnStyles.delete.border : btnStyles.delete.bg,
+                                      borderColor: btnStyles.delete.border,
+                                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                                    }
+                                  ])}
+                                >
+                                  <IconSymbol name="xmark.circle.fill" size={14} color={btnStyles.delete.text} />
+                                  <Text style={[styles.rejectActionBtnText, { color: btnStyles.delete.text }]}>{t.admin.actionReject}</Text>
+                                </View>
+                              )}
                             </Pressable>
 
                             <Pressable
-                              style={({ pressed }) => [styles.actionBtn, styles.editActionBtnFull, { backgroundColor: `${C.primary}12`, borderColor: `${C.primary}30` }, pressed && { opacity: 0.8 }]}
+                              style={{ flex: 1 }}
                               onPress={() => router.push(`/admin/articles/${article.id}/edit` as Href)}
                             >
-                              <IconSymbol name="pencil" size={14} color={C.primary} />
-                              <Text style={[styles.editActionBtnText, { color: C.primary }]}>Sửa</Text>
+                              {({ pressed }) => (
+                                <View
+                                  style={StyleSheet.flatten([
+                                    styles.actionBtn,
+                                    {
+                                      backgroundColor: pressed ? btnStyles.edit.border : btnStyles.edit.bg,
+                                      borderColor: btnStyles.edit.border,
+                                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                                    }
+                                  ])}
+                                >
+                                  <IconSymbol name="pencil" size={14} color={btnStyles.edit.text} />
+                                  <Text style={[styles.editActionBtnText, { color: btnStyles.edit.text }]}>{t.admin.actionEdit}</Text>
+                                </View>
+                              )}
                             </Pressable>
                           </>
                         )}
@@ -466,7 +681,7 @@ export default function AdminArticlesScreen() {
                     {/* Action buttons — PUBLISHED TAB */}
                     {status === 'published' && (
                       <>
-                        <View style={[styles.publishToggleRow, { borderTopColor: `${C.border}60` }]}>
+                        <View style={[styles.publishToggleRow, { borderTopColor: `${C.border}30` }]}>
                           <View style={styles.statsGroup}>
                             <View style={styles.statItm}>
                               <IconSymbol name="eye.fill" size={12} color={C.accent} />
@@ -483,43 +698,82 @@ export default function AdminArticlesScreen() {
                             ) : (
                               <>
                                 <Text style={[styles.switchLabel, { color: article.published ? C.accent : C.textTertiary }]}>
-                                  {article.published ? 'Hiển thị' : 'Đang ẩn'}
+                                  {article.published ? t.admin.switchShow : t.admin.switchHide}
                                 </Text>
                                 <Switch
                                   value={article.published ?? false}
                                   onValueChange={() => handleTogglePublish(article)}
                                   trackColor={{ false: C.border, true: `${C.accent}70` }}
                                   thumbColor={article.published ? C.accent : C.textTertiary}
-                                  style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                                  style={{ transform: [{ scaleX: 0.75 }, { scaleY: 0.75 }] }}
                                 />
                               </>
                             )}
                           </View>
                         </View>
 
-                        <View style={[styles.actionsRow, { borderTopColor: `${C.border}60` }]}>
+                        <View style={[styles.actionsRow, { borderTopColor: `${C.border}30` }]}>
                           <Pressable
-                            style={({ pressed }) => [styles.actionBtn, styles.viewActionBtn, { backgroundColor: `${C.accent}12`, borderColor: `${C.accent}30` }, pressed && { opacity: 0.8 }]}
+                            style={{ flex: 1 }}
                             onPress={() => router.push(`/articles/${article.id}` as Href)}
                           >
-                            <IconSymbol name="eye.fill" size={14} color={C.accent} />
-                            <Text style={[styles.viewActionBtnText, { color: C.accent }]}>Xem</Text>
+                            {({ pressed }) => (
+                              <View
+                                style={StyleSheet.flatten([
+                                  styles.actionBtn,
+                                  {
+                                    backgroundColor: pressed ? btnStyles.view.border : btnStyles.view.bg,
+                                    borderColor: btnStyles.view.border,
+                                    transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                                  }
+                                ])}
+                              >
+                                <IconSymbol name="eye.fill" size={14} color={btnStyles.view.text} />
+                                <Text style={[styles.viewActionBtnText, { color: btnStyles.view.text }]}>{t.admin.actionView}</Text>
+                              </View>
+                            )}
                           </Pressable>
 
                           <Pressable
-                            style={({ pressed }) => [styles.actionBtn, styles.editActionBtnFull, { backgroundColor: `${C.primary}12`, borderColor: `${C.primary}30` }, pressed && { opacity: 0.8 }]}
+                            style={{ flex: 1 }}
                             onPress={() => router.push(`/admin/articles/${article.id}/edit` as Href)}
                           >
-                            <IconSymbol name="pencil" size={14} color={C.primary} />
-                            <Text style={[styles.editActionBtnText, { color: C.primary }]}>Sửa</Text>
+                            {({ pressed }) => (
+                              <View
+                                style={StyleSheet.flatten([
+                                  styles.actionBtn,
+                                  {
+                                    backgroundColor: pressed ? btnStyles.edit.border : btnStyles.edit.bg,
+                                    borderColor: btnStyles.edit.border,
+                                    transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                                  }
+                                ])}
+                              >
+                                <IconSymbol name="pencil" size={14} color={btnStyles.edit.text} />
+                                <Text style={[styles.editActionBtnText, { color: btnStyles.edit.text }]}>{t.admin.actionEdit}</Text>
+                              </View>
+                            )}
                           </Pressable>
 
                           <Pressable
-                            style={({ pressed }) => [styles.actionBtn, styles.deleteActionBtn, { backgroundColor: `${C.error}12`, borderColor: `${C.error}30` }, pressed && { opacity: 0.8 }]}
+                            style={{ flex: 1 }}
                             onPress={() => handleDelete(article.id, article.title)}
                           >
-                            <IconSymbol name="trash.fill" size={14} color={C.error} />
-                            <Text style={[styles.deleteActionBtnText, { color: C.error }]}>Xóa</Text>
+                            {({ pressed }) => (
+                              <View
+                                style={StyleSheet.flatten([
+                                  styles.actionBtn,
+                                  {
+                                    backgroundColor: pressed ? btnStyles.delete.border : btnStyles.delete.bg,
+                                    borderColor: btnStyles.delete.border,
+                                    transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                                  }
+                                ])}
+                              >
+                                <IconSymbol name="trash.fill" size={14} color={btnStyles.delete.text} />
+                                <Text style={[styles.deleteActionBtnText, { color: btnStyles.delete.text }]}>{t.admin.actionDelete}</Text>
+                              </View>
+                            )}
                           </Pressable>
                         </View>
                       </>
@@ -527,28 +781,54 @@ export default function AdminArticlesScreen() {
 
                     {/* Action buttons — REJECTED TAB */}
                     {status === 'rejected' && (
-                      <View style={[styles.actionsRow, { borderTopColor: `${C.border}60` }]}>
+                      <View style={[styles.actionsRow, { borderTopColor: `${C.border}30` }]}>
                         {togglingId === article.id ? (
                           <View style={styles.loadingRow}>
                             <ActivityIndicator size="small" color={C.primary} />
-                            <Text style={[styles.processingText, { color: C.textSecondary }]}>Đang xử lý...</Text>
+                            <Text style={[styles.processingText, { color: C.textSecondary }]}>{t.admin.processing}</Text>
                           </View>
                         ) : (
                           <>
                             <Pressable
-                              style={({ pressed }) => [styles.actionBtn, styles.approveActionBtn, { backgroundColor: C.primary }, pressed && { opacity: 0.8 }]}
+                              style={{ flex: 1.5 }}
                               onPress={() => handleApprove(article)}
                             >
-                              <IconSymbol name="arrow.uturn.left" size={14} color="#131313" />
-                              <Text style={styles.approveActionBtnText}>Duyệt lại</Text>
+                              {({ pressed }) => (
+                                <View
+                                  style={StyleSheet.flatten([
+                                    styles.actionBtn,
+                                    {
+                                      backgroundColor: pressed ? hexToRgba(C.primary, 0.8) : C.primary,
+                                      borderColor: hexToRgba(C.primary, 0.4),
+                                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                                    }
+                                  ])}
+                                >
+                                  <IconSymbol name="arrow.uturn.left" size={14} color="#131313" />
+                                  <Text style={styles.approveActionBtnText}>{t.admin.actionApproveAgain}</Text>
+                                </View>
+                              )}
                             </Pressable>
 
                             <Pressable
-                              style={({ pressed }) => [styles.actionBtn, styles.deleteActionBtn, { backgroundColor: `${C.error}12`, borderColor: `${C.error}30` }, pressed && { opacity: 0.8 }, { flex: 1 }]}
+                              style={{ flex: 1 }}
                               onPress={() => handleDelete(article.id, article.title)}
                             >
-                              <IconSymbol name="trash.fill" size={14} color={C.error} />
-                              <Text style={[styles.deleteActionBtnText, { color: C.error }]}>Xóa hẳn</Text>
+                              {({ pressed }) => (
+                                <View
+                                  style={StyleSheet.flatten([
+                                    styles.actionBtn,
+                                    {
+                                      backgroundColor: pressed ? btnStyles.delete.border : btnStyles.delete.bg,
+                                      borderColor: btnStyles.delete.border,
+                                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                                    }
+                                  ])}
+                                >
+                                  <IconSymbol name="trash.fill" size={14} color={btnStyles.delete.text} />
+                                  <Text style={[styles.deleteActionBtnText, { color: btnStyles.delete.text }]}>{t.admin.actionDeletePermanent}</Text>
+                                </View>
+                              )}
                             </Pressable>
                           </>
                         )}
@@ -561,6 +841,21 @@ export default function AdminArticlesScreen() {
           )}
         </View>
       </ScrollView>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        options={alertConfig.options}
+        onClose={() => {
+          setAlertConfig(prev => ({ ...prev, visible: false }));
+          if (alertConfig.onClose) alertConfig.onClose();
+        }}
+      />
     </View>
   );
 }
@@ -580,9 +875,13 @@ const styles = StyleSheet.create({
     ...Typography.bodyMedium,
   },
   stickyHeader: {
-    paddingBottom: 12,
+    paddingBottom: 14,
     borderBottomWidth: 0.5,
     zIndex: 100,
+    ...Platform.select({
+      web: { backdropFilter: 'blur(16px)' } as any,
+      default: {},
+    }),
   },
   headerInner: {
     flexDirection: 'row',
@@ -596,11 +895,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 0.5,
+    borderColor: 'rgba(182,139,30,0.2)',
   },
   headerTitle: {
     ...Typography.headlineMedium,
     fontFamily: FontFamily.playfairBold,
     flex: 1,
+    letterSpacing: -0.5,
   },
   headerBadge: {
     paddingHorizontal: 8,
@@ -618,7 +920,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: Spacing.containerMargin,
     gap: Spacing.md,
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   addNewBtn: {
     flexDirection: 'row',
@@ -628,11 +930,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: Spacing.sm,
     ...Shadows.goldGlow,
-    shadowColor: '#B68B1E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 3,
   },
   addNewBtnText: {
     ...Typography.labelLarge,
@@ -645,27 +942,34 @@ const styles = StyleSheet.create({
   },
   tabPill: {
     flex: 1,
-    paddingVertical: Spacing.sm,
+    paddingVertical: 10,
     borderRadius: BorderRadius.full,
-    borderWidth: 0.5,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      ios: Shadows.small,
+      web: Shadows.small,
+      default: {},
+    }),
   },
   tabPillText: {
     ...Typography.labelMedium,
+    fontSize: 12,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    height: 48,
-    borderRadius: BorderRadius.lg,
+    height: 46,
+    borderRadius: BorderRadius.md,
     borderWidth: 0.5,
+    ...Shadows.small,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: FontFamily.inter,
     height: '100%',
   },
@@ -678,9 +982,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: BorderRadius.full,
     borderWidth: 0.5,
+    ...Shadows.small,
   },
   filterChipText: {
     ...Typography.labelSmall,
+    fontSize: 11,
   },
   listSection: {
     gap: Spacing.md,
@@ -706,15 +1012,16 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.sm,
     padding: Spacing.xl,
     borderRadius: BorderRadius.lg,
-    borderWidth: 0.5,
+    borderWidth: 1,
+    borderStyle: 'dashed',
   },
   emptyIconBg: {
-    width: 64,
-    height: 64,
-    borderRadius: BorderRadius.lg,
+    width: 60,
+    height: 60,
+    borderRadius: BorderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -725,34 +1032,29 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     ...Typography.bodySmall,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   articleCard: {
     borderWidth: 0.5,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     gap: Spacing.md,
-    ...Shadows.medium,
+    ...Platform.select({
+      ios: Shadows.medium,
+      web: Shadows.medium,
+      default: {},
+    }),
   },
   cardTop: {
     flexDirection: 'row',
     gap: Spacing.md,
   },
   thumbnail: {
-    width: 72,
-    height: 72,
+    width: 68,
+    height: 68,
     borderRadius: BorderRadius.md,
     resizeMode: 'cover',
     flexShrink: 0,
-  },
-  thumbnailPlaceholder: {
-    width: 72,
-    height: 72,
-    borderRadius: BorderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-    borderWidth: 0.5,
   },
   cardInfo: {
     flex: 1,
@@ -771,9 +1073,9 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   statusBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
   categoryBadgeText: {
     ...Typography.labelSmall,
@@ -825,28 +1127,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xs,
-    paddingVertical: 8,
-    borderRadius: BorderRadius.full,
-    height: 38,
+    gap: 6,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
+    flex: 1,
+    ...Shadows.small,
   },
   approveActionBtn: {
-    flex: 2,
+    flex: 1.5,
     ...Shadows.goldGlow,
-    shadowColor: '#B68B1E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: 'rgba(212,175,55,0.4)',
   },
   approveActionBtnText: {
-    ...Typography.labelSmall,
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
     color: '#131313',
     fontWeight: '800',
   },
@@ -854,32 +1149,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rejectActionBtnText: {
-    ...Typography.labelSmall,
-    fontWeight: '800',
-  },
-  editActionBtn: {
-    width: 38,
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    fontWeight: '700',
   },
   editActionBtnFull: {
     flex: 1,
   },
   editActionBtnText: {
-    ...Typography.labelSmall,
-    fontWeight: '800',
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    fontWeight: '700',
   },
   viewActionBtn: {
     flex: 1,
   },
   viewActionBtnText: {
-    ...Typography.labelSmall,
-    fontWeight: '800',
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    fontWeight: '700',
   },
   deleteActionBtn: {
     flex: 1,
   },
   deleteActionBtnText: {
-    ...Typography.labelSmall,
-    fontWeight: '800',
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    fontWeight: '700',
   },
   processingText: {
     ...Typography.bodySmall,
@@ -890,7 +1186,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    height: 38,
+    height: 36,
   },
   publishToggleRow: {
     flexDirection: 'row',

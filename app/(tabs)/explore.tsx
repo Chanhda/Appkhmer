@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -21,6 +21,7 @@ import { BorderRadius, Colors, FontFamily, Shadows, Spacing, Typography } from '
 import { type ArticleDocument, fetchArticles } from '@/lib/article-repository';
 import { useAuthSession } from '@/lib/auth-session';
 import { useLanguage } from '@/contexts/language-context';
+import { getArticleImageSource } from '@/constants/image-resolver';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const CAT_COLORS: Record<string, string> = {
@@ -90,16 +91,18 @@ export default function ExploreScreen() {
     { key: 'Nghệ thuật', label: t.explore.categories.art || 'Nghệ thuật' },
   ];
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await fetchArticles();
-        setArticles(data);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        try {
+          const data = await fetchArticles();
+          setArticles(data);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }, [])
+  );
 
   const filtered = articles.filter(a => {
     const matchSearch = !search || a.title.toLowerCase().includes(search.toLowerCase());
@@ -112,42 +115,6 @@ export default function ExploreScreen() {
       {/* ── Header ── */}
       <Animated.View entering={FadeIn.duration(400)} style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
         <ThemedText style={styles.headerTitle} numberOfLines={1}>{t.explore.title}</ThemedText>
-        <Pressable
-          style={({ pressed }) => [styles.newArticleBtn, pressed && { opacity: 0.8 }]}
-          onPress={() => {
-            if (!firebaseUser) {
-              if (Platform.OS === 'web') {
-                const confirmLogin = confirm(
-                  language === 'vi' 
-                    ? 'Bạn cần đăng nhập để viết bài. Đăng nhập ngay?' 
-                    : language === 'km' 
-                      ? 'អ្នកត្រូវតែចូលគណនីដើម្បីសរសេរអត្ថបទ។ ចូលឥឡូវនេះ?' 
-                      : 'You need to sign in to write an article. Sign in now?'
-                );
-                if (confirmLogin) router.push({ pathname: '/auth', params: { redirectTo: '/articles/new' } });
-              } else {
-                showAlert(
-                  language === 'vi' ? 'Yêu cầu đăng nhập' : language === 'km' ? 'តម្រូវឱ្យចូលគណនី' : 'Login Required',
-                  language === 'vi' ? 'Bạn cần đăng nhập để viết bài viết đóng góp.' : language === 'km' ? 'អ្នកត្រូវតែចូលគណនីដើម្បីសរសេរអត្ថបទ។' : 'You need to sign in to write an article.',
-                  'warning',
-                  () => {
-                    setAlertConfig(prev => ({ ...prev, visible: false }));
-                    router.push({ pathname: '/auth', params: { redirectTo: '/articles/new' } });
-                  },
-                  language === 'vi' ? 'Đăng nhập' : language === 'km' ? 'ចូល' : 'Sign In',
-                  language === 'vi' ? 'Hủy' : language === 'km' ? 'បោះบង់' : 'Cancel'
-                );
-              }
-            } else {
-              router.push('/articles/new');
-            }
-          }}
-        >
-          <IconSymbol name="plus" size={12} color={colorScheme === 'light' ? '#F9F6F0' : '#131313'} />
-          <Text style={styles.newArticleBtnText}>
-            {language === 'vi' ? 'Viết bài' : language === 'km' ? 'សរសេរអត្ថបទ' : 'Write'}
-          </Text>
-        </Pressable>
       </Animated.View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -266,13 +233,7 @@ export default function ExploreScreen() {
                   <View style={styles.articleRow}>
                     {/* Thumbnail */}
                     <View style={styles.articleThumb}>
-                      {article.coverImage ? (
-                        <Image source={{ uri: article.coverImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                      ) : (
-                        <View style={[StyleSheet.absoluteFill, { backgroundColor: C.surfaceHigh, justifyContent: 'center', alignItems: 'center' }]}>
-                          <IconSymbol name="photo" size={24} color={C.textTertiary} />
-                        </View>
-                      )}
+                      <Image source={getArticleImageSource(article.id, article.coverImage, article.category)} style={StyleSheet.absoluteFill} resizeMode="cover" />
                     </View>
 
                     {/* Text */}
@@ -394,11 +355,16 @@ const getStyles = (C: typeof Colors.dark, scheme: string) => StyleSheet.create({
   articleList: { paddingHorizontal: Spacing.containerMargin, gap: Spacing.md },
 
   articleCard: {
-    backgroundColor: scheme === 'light' ? 'rgba(243, 237, 226, 0.6)' : 'rgba(30,30,30,0.6)',
-    borderWidth: 0.5, borderColor: `${C.primary}15`,
+    backgroundColor: scheme === 'light' ? '#FFFFFF' : C.backgroundSecondary,
+    borderWidth: 0.5,
+    borderColor: scheme === 'light' ? 'rgba(182, 139, 30, 0.15)' : 'rgba(242, 202, 80, 0.15)',
     borderRadius: BorderRadius.xl,
     padding: Spacing.md,
-    ...Shadows.medium,
+    ...Platform.select({
+      ios: Shadows.medium,
+      web: Shadows.medium,
+      default: {},
+    }),
   },
   articleRow: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
   articleThumb: {

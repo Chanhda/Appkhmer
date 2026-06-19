@@ -9,7 +9,7 @@ export type HeritageDocument = HeritageItem & {
   location?: {
     lat?: number;
     lng?: number;
-  };
+  } | null;
   views?: number;
   likes?: number;
   /** Short summary for detail page */
@@ -39,6 +39,7 @@ function mapHeritageDoc(id: string, data: Record<string, unknown>): HeritageDocu
     coverImage: typeof data.coverImage === 'string'
       ? data.coverImage.replace('w=1200', 'w=400').replace('w=800', 'w=400')
       : undefined,
+    gallery: Array.isArray(data.gallery) ? data.gallery.map((item) => String(item)) : undefined,
     createdAt: typeof data.createdAt === 'string' ? data.createdAt : undefined,
     location,
     views: typeof data.views === 'number' ? data.views : 0,

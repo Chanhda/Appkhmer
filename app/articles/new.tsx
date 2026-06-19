@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { uploadImageToCloudinary } from '@/lib/cloudinary';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemedText } from '@/components/themed-text';
@@ -26,7 +26,7 @@ import { articleTemplates, getTemplateById } from '@/data/article-templates';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuthSession } from '@/lib/auth-session';
 import { submitArticle } from '@/lib/article-repository';
-import { getStorageBucket, isFirebaseConfigured, isDemoDataEnabled } from '@/lib/firebase';
+import { isFirebaseConfigured, isDemoDataEnabled } from '@/lib/firebase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const currentDateText = () => {
@@ -35,15 +35,7 @@ const currentDateText = () => {
 };
 
 async function uploadImageAsync(uri: string): Promise<string> {
-  const response = await fetch(uri);
-  const blob = await response.blob();
-
-  const storage = getStorageBucket();
-  const filename = `articles/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.jpg`;
-  const fileRef = ref(storage, filename);
-
-  await uploadBytes(fileRef, blob);
-  return await getDownloadURL(fileRef);
+  return await uploadImageToCloudinary(uri, 'articles');
 }
 
 export default function NewArticleScreen() {
@@ -61,8 +53,10 @@ export default function NewArticleScreen() {
   const [author, setAuthor] = useState('');
   const [dateText, setDateText] = useState('');
   const [coverImage, setCoverImage] = useState('');
+  const [gallery, setGallery] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isUploadingGallery, setIsUploadingGallery] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{
     visible: boolean;
     type: 'success' | 'error' | 'info' | 'warning';
@@ -191,8 +185,7 @@ export default function NewArticleScreen() {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [16, 9],
+        allowsEditing: false,
         quality: 0.8,
       });
 
@@ -207,7 +200,8 @@ export default function NewArticleScreen() {
           setCoverImage(uploadedUrl);
         } catch (err) {
           console.error('Error uploading image:', err);
-          showAlert('Lỗi tải ảnh', 'Không thể tải ảnh lên máy chủ. Bạn vẫn có thể dùng ảnh dưới dạng cục bộ.', 'warning');
+          const errMsg = err instanceof Error ? err.message : String(err);
+          showAlert('Lỗi tải ảnh', `Không thể tải ảnh lên máy chủ.\n\nChi tiết lỗi: ${errMsg}\n\nBạn vẫn có thể dùng ảnh dưới dạng cục bộ.`, 'warning');
           setCoverImage(selectedUri);
         } finally {
           setIsUploadingImage(false);
@@ -227,8 +221,7 @@ export default function NewArticleScreen() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [16, 9],
+        allowsEditing: false,
         quality: 0.8,
       });
 
@@ -243,7 +236,8 @@ export default function NewArticleScreen() {
           setCoverImage(uploadedUrl);
         } catch (err) {
           console.error('Error uploading image:', err);
-          showAlert('Lỗi tải ảnh', 'Không thể tải ảnh lên máy chủ. Bạn vẫn có thể dùng ảnh dưới dạng cục bộ.', 'warning');
+          const errMsg = err instanceof Error ? err.message : String(err);
+          showAlert('Lỗi tải ảnh', `Không thể tải ảnh lên máy chủ.\n\nChi tiết lỗi: ${errMsg}\n\nBạn vẫn có thể dùng ảnh dưới dạng cục bộ.`, 'warning');
           setCoverImage(selectedUri);
         } finally {
           setIsUploadingImage(false);
@@ -252,6 +246,86 @@ export default function NewArticleScreen() {
     } catch (err) {
       console.error('Error taking photo:', err);
     }
+  };
+
+  const pickGalleryImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showAlert('Quyền truy cập', 'Ứng dụng cần quyền truy cập thư viện ảnh để tải ảnh lên.', 'warning');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+        allowsMultipleSelection: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIsUploadingGallery(true);
+        try {
+          const uploadedUrls: string[] = [];
+          for (const asset of result.assets) {
+            let uploadedUrl = asset.uri;
+            if (isFirebaseConfigured() && !isDemoDataEnabled()) {
+              uploadedUrl = await uploadImageAsync(asset.uri);
+            }
+            uploadedUrls.push(uploadedUrl);
+          }
+          setGallery(prev => [...prev, ...uploadedUrls]);
+        } catch (err) {
+          console.error('Error uploading gallery image:', err);
+          showAlert('Lỗi tải ảnh', 'Không thể tải ảnh lên máy chủ. Bạn vẫn có thể dùng ảnh cục bộ.', 'warning');
+          const localUris = result.assets.map(asset => asset.uri);
+          setGallery(prev => [...prev, ...localUris]);
+        } finally {
+          setIsUploadingGallery(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error picking gallery image:', err);
+    }
+  };
+
+  const takeGalleryPhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        showAlert('Quyền truy cập', 'Ứng dụng cần quyền truy cập máy ảnh để chụp ảnh.', 'warning');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        setIsUploadingGallery(true);
+        try {
+          let uploadedUrl = selectedUri;
+          if (isFirebaseConfigured() && !isDemoDataEnabled()) {
+            uploadedUrl = await uploadImageAsync(selectedUri);
+          }
+          setGallery(prev => [...prev, uploadedUrl]);
+        } catch (err) {
+          console.error('Error uploading camera gallery image:', err);
+          showAlert('Lỗi tải ảnh', 'Không thể tải ảnh chụp lên máy chủ. Bạn vẫn có thể dùng ảnh cục bộ.', 'warning');
+          setGallery(prev => [...prev, selectedUri]);
+        } finally {
+          setIsUploadingGallery(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error taking gallery photo:', err);
+    }
+  };
+
+  const removeGalleryImage = (indexToRemove: number) => {
+    setGallery(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
   function handleTemplateChange(nextTemplateId: string) {
@@ -295,6 +369,7 @@ export default function NewArticleScreen() {
         author: author.trim() || profile?.displayName || 'Ban biên soạn',
         date: dateText.trim() || currentDateText(),
         coverImage: coverImage.trim() || undefined,
+        gallery,
         createdAt: new Date().toISOString(),
         authorId: firebaseUser.uid,
       });
@@ -509,6 +584,60 @@ export default function NewArticleScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
+              </View>
+            </Card>
+          </Animated.View>
+
+          {/* Gallery Images (Thư viện ảnh bài viết) */}
+          <Animated.View entering={FadeInDown.delay(180).duration(600)}>
+            <Card variant="elevated" padding="md" style={styles.card}>
+              <View style={styles.inputGroup}>
+                <ThemedText style={[styles.inputLabel, { color: colors.textSecondary }]}>Thư viện ảnh bài viết</ThemedText>
+                
+                {/* Gallery Scroll */}
+                {gallery.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryScrollContainer}>
+                    {gallery.map((imgUrl, idx) => (
+                      <View key={idx} style={[styles.galleryThumbContainer, { borderColor: colors.border }]}>
+                        <Image source={{ uri: imgUrl }} style={styles.galleryThumbImage} />
+                        <TouchableOpacity
+                          style={[styles.galleryRemoveBadge, { backgroundColor: colors.secondary }]}
+                          onPress={() => removeGalleryImage(idx)}
+                        >
+                          <IconSymbol name="xmark.circle.fill" size={16} color="#FFFFFF" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <View style={[styles.emptyGalleryBox, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}>
+                    <IconSymbol name="photo.on.rectangle.angled" size={24} color={colors.textTertiary} />
+                    <ThemedText style={{ color: colors.textTertiary, fontSize: 12, marginTop: 4 }}>Chưa có ảnh trong thư viện</ThemedText>
+                  </View>
+                )}
+
+                {/* Gallery Action Buttons */}
+                <View style={styles.photoActionsRow}>
+                  <TouchableOpacity
+                    style={[styles.photoActionBtn, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}
+                    onPress={pickGalleryImage}
+                    disabled={isUploadingGallery}
+                  >
+                    <IconSymbol name="photo.on.rectangle.angled" size={14} color={colors.primary} />
+                    <ThemedText style={[styles.photoActionText, { color: colors.text }]}>
+                      {isUploadingGallery ? 'Đang tải...' : 'Thêm từ thư viện'}
+                    </ThemedText>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.photoActionBtn, { borderColor: colors.border, backgroundColor: colors.backgroundSecondary }]}
+                    onPress={takeGalleryPhoto}
+                    disabled={isUploadingGallery}
+                  >
+                    <IconSymbol name="camera.fill" size={14} color={colors.primary} />
+                    <ThemedText style={[styles.photoActionText, { color: colors.text }]}>Chụp ảnh mới</ThemedText>
+                  </TouchableOpacity>
+                </View>
               </View>
             </Card>
           </Animated.View>
@@ -822,5 +951,42 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: FontFamily.interMedium,
     fontWeight: '600',
+  },
+  galleryScrollContainer: {
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  galleryThumbContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  galleryThumbImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  galleryRemoveBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  emptyGalleryBox: {
+    width: '100%',
+    height: 80,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

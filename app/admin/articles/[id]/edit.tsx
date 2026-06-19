@@ -10,24 +10,34 @@ import {
   StyleSheet,
   Switch,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadImageToCloudinary } from '@/lib/cloudinary';
 
 import { ThemedText } from '@/components/themed-text';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { BorderRadius, Colors, Shadows, Spacing, Typography } from '@/constants/theme';
+import { BorderRadius, Colors, Shadows, Spacing, Typography, FontFamily } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { fetchArticleById, updateArticle } from '@/lib/article-repository';
+import { isFirebaseConfigured, isDemoDataEnabled } from '@/lib/firebase';
+import { CustomAlert } from '@/components/ui/custom-alert';
+
+async function uploadImageAsync(uri: string): Promise<string> {
+  return await uploadImageToCloudinary(uri, 'articles');
+}
 
 export default function AdminEditArticleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const isDark = colorScheme === 'dark';
 
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('');
@@ -37,12 +47,205 @@ export default function AdminEditArticleScreen() {
   const [author, setAuthor] = useState('Admin');
   const [date, setDate] = useState('');
   const [coverImage, setCoverImage] = useState('');
+  const [gallery, setGallery] = useState<string[]>([]);
   const [published, setPublished] = useState(true);
   const [viewsInput, setViewsInput] = useState('0');
   const [likesInput, setLikesInput] = useState('0');
   const [isSaving, setIsSaving] = useState(false);
 
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'info' | 'warning';
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void;
+    onClose?: () => void;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    type: 'success' | 'error' | 'info' | 'warning' = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    cancelText?: string,
+    onClose?: () => void
+  ) => {
+    setAlertConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      onConfirm,
+      confirmText,
+      cancelText,
+      onClose,
+    });
+  };
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isUploadingGallery, setIsUploadingGallery] = useState(false);
+
   const categories = ['Lễ hội', 'Kiến trúc', 'Ẩm thực', 'Nghệ thuật', 'Cộng đồng', 'Du lịch'];
+
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showAlert('Quyền truy cập', 'Ứng dụng cần quyền truy cập thư viện ảnh để tải ảnh lên.', 'warning');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        setIsUploadingImage(true);
+        try {
+          let uploadedUrl = selectedUri;
+          if (isFirebaseConfigured() && !isDemoDataEnabled()) {
+            uploadedUrl = await uploadImageAsync(selectedUri);
+          }
+          setCoverImage(uploadedUrl);
+        } catch (err) {
+          console.error('Error uploading image:', err);
+          const errMsg = err instanceof Error ? err.message : String(err);
+          showAlert('Lỗi tải ảnh', `Không thể tải ảnh lên máy chủ.\n\nChi tiết lỗi: ${errMsg}\n\nBạn vẫn có thể dùng ảnh dưới dạng cục bộ.`, 'warning');
+          setCoverImage(selectedUri);
+        } finally {
+          setIsUploadingImage(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error picking image:', err);
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        showAlert('Quyền truy cập', 'Ứng dụng cần quyền truy cập máy ảnh để chụp ảnh.', 'warning');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        setIsUploadingImage(true);
+        try {
+          let uploadedUrl = selectedUri;
+          if (isFirebaseConfigured() && !isDemoDataEnabled()) {
+            uploadedUrl = await uploadImageAsync(selectedUri);
+          }
+          setCoverImage(uploadedUrl);
+        } catch (err) {
+          console.error('Error uploading image:', err);
+          const errMsg = err instanceof Error ? err.message : String(err);
+          showAlert('Lỗi tải ảnh', `Không thể tải ảnh lên máy chủ.\n\nChi tiết lỗi: ${errMsg}\n\nBạn vẫn có thể dùng ảnh dưới dạng cục bộ.`, 'warning');
+          setCoverImage(selectedUri);
+        } finally {
+          setIsUploadingImage(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error taking photo:', err);
+    }
+  };
+
+  const pickGalleryImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        showAlert('Quyền truy cập', 'Ứng dụng cần quyền truy cập thư viện ảnh để tải ảnh lên.', 'warning');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+        allowsMultipleSelection: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIsUploadingGallery(true);
+        try {
+          const uploadedUrls: string[] = [];
+          for (const asset of result.assets) {
+            let uploadedUrl = asset.uri;
+            if (isFirebaseConfigured() && !isDemoDataEnabled()) {
+              uploadedUrl = await uploadImageAsync(asset.uri);
+            }
+            uploadedUrls.push(uploadedUrl);
+          }
+          setGallery(prev => [...prev, ...uploadedUrls]);
+        } catch (err) {
+          console.error('Error uploading gallery image:', err);
+          showAlert('Lỗi tải ảnh', 'Không thể tải ảnh lên máy chủ. Bạn vẫn có thể dùng ảnh cục bộ.', 'warning');
+          const localUris = result.assets.map(asset => asset.uri);
+          setGallery(prev => [...prev, ...localUris]);
+        } finally {
+          setIsUploadingGallery(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error picking gallery image:', err);
+    }
+  };
+
+  const takeGalleryPhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        showAlert('Quyền truy cập', 'Ứng dụng cần quyền truy cập máy ảnh để chụp ảnh.', 'warning');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        setIsUploadingGallery(true);
+        try {
+          let uploadedUrl = selectedUri;
+          if (isFirebaseConfigured() && !isDemoDataEnabled()) {
+            uploadedUrl = await uploadImageAsync(selectedUri);
+          }
+          setGallery(prev => [...prev, uploadedUrl]);
+        } catch (err) {
+          console.error('Error uploading camera gallery image:', err);
+          showAlert('Lỗi tải ảnh', 'Không thể tải ảnh chụp lên máy chủ. Bạn vẫn có thể dùng ảnh cục bộ.', 'warning');
+          setGallery(prev => [...prev, selectedUri]);
+        } finally {
+          setIsUploadingGallery(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error taking gallery photo:', err);
+    }
+  };
+
+  const removeGalleryImage = (indexToRemove: number) => {
+    setGallery(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
 
   useEffect(() => {
     async function loadArticle() {
@@ -58,17 +261,16 @@ export default function AdminEditArticleScreen() {
           setAuthor(article.author);
           setDate(article.date);
           setCoverImage(article.coverImage || '');
+          setGallery(article.gallery || []);
           setPublished(article.published !== false);
           setViewsInput(article.views !== undefined ? String(article.views) : '0');
           setLikesInput(article.likes !== undefined ? String(article.likes) : '0');
         } else {
-          Alert.alert('Lỗi', 'Không tìm thấy bài viết.');
-          router.back();
+          showAlert('Lỗi', 'Không tìm thấy bài viết.', 'error', () => router.back());
         }
       } catch (error) {
         console.error(error);
-        Alert.alert('Lỗi', 'Không thể tải dữ liệu bài viết.');
-        router.back();
+        showAlert('Lỗi', 'Không thể tải dữ liệu bài viết.', 'error', () => router.back());
       } finally {
         setLoading(false);
       }
@@ -78,7 +280,7 @@ export default function AdminEditArticleScreen() {
 
   async function handleSave() {
     if (!title.trim() || !summary.trim() || !content.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng điền đầy đủ Tiêu đề, Tóm tắt và Nội dung.');
+      showAlert('Thiếu thông tin', 'Vui lòng điền đầy đủ Tiêu đề, Tóm tắt và Nội dung.', 'warning');
       return;
     }
 
@@ -94,6 +296,7 @@ export default function AdminEditArticleScreen() {
         author: author.trim(),
         date: date.trim(),
         coverImage: coverImage.trim() || undefined,
+        gallery,
         published,
         views,
         likes,
@@ -101,14 +304,14 @@ export default function AdminEditArticleScreen() {
 
       if (Platform.OS === 'web') {
         alert('Cập nhật bài viết thành công!');
+        router.back();
       } else {
-        Alert.alert('Thành công', 'Đã cập nhật bài viết.');
+        showAlert('Thành công', 'Đã cập nhật bài viết.', 'success', () => router.back());
       }
-      router.back();
     } catch (error) {
       console.error(error);
       const msg = error instanceof Error ? error.message : 'Lỗi không xác định';
-      Alert.alert('Lỗi', `Không thể cập nhật bài viết: ${msg}`);
+      showAlert('Lỗi', `Không thể cập nhật bài viết: ${msg}`, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -285,25 +488,121 @@ export default function AdminEditArticleScreen() {
 
           <View style={[styles.formCard, { backgroundColor: colors.backgroundSecondary, borderColor: colors.borderLight }]}>
             <View style={styles.inputGroup}>
-              <ThemedText style={[styles.label, { color: colors.textSecondary }]}>URL ảnh bìa (Unsplash/CDN)</ThemedText>
+              <ThemedText style={[styles.label, { color: colors.textSecondary }]}>Ảnh bìa bài viết</ThemedText>
+              
+              {/* Image Picker Box / Preview */}
+              <TouchableOpacity
+                style={[
+                  styles.imagePickerBox,
+                  { borderColor: colors.border, backgroundColor: colors.background }
+                ]}
+                onPress={pickImage}
+                activeOpacity={0.8}
+              >
+                {isUploadingImage ? (
+                  <View style={styles.pickerContent}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <ThemedText style={[styles.pickerHint, { color: colors.textTertiary }]}>Đang tải ảnh lên...</ThemedText>
+                  </View>
+                ) : coverImage.trim() ? (
+                  <View style={styles.previewImageContainer}>
+                    <Image source={{ uri: coverImage.trim() }} style={styles.pickerImage} />
+                    <TouchableOpacity
+                      style={[styles.removeImageBadge, { backgroundColor: colors.error }]}
+                      onPress={() => setCoverImage('')}
+                    >
+                      <IconSymbol name="xmark.circle.fill" size={20} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.pickerContent}>
+                    <IconSymbol name="photo.fill" size={28} color={colors.primary} />
+                    <ThemedText style={[styles.pickerHint, { color: colors.textTertiary }]}>Nhấn để chọn ảnh từ thư viện</ThemedText>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Camera / Library Action Buttons */}
+              <View style={styles.photoActionsRow}>
+                <TouchableOpacity
+                  style={[styles.photoActionBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                  onPress={pickImage}
+                  disabled={isUploadingImage}
+                >
+                  <IconSymbol name="photo.on.rectangle.angled" size={14} color={colors.primary} />
+                  <ThemedText style={[styles.photoActionText, { color: colors.text }]}>Chọn từ thư viện</ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.photoActionBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                  onPress={takePhoto}
+                  disabled={isUploadingImage}
+                >
+                  <IconSymbol name="camera.fill" size={14} color={colors.primary} />
+                  <ThemedText style={[styles.photoActionText, { color: colors.text }]}>Chụp ảnh mới</ThemedText>
+                </TouchableOpacity>
+              </View>
+
+              {/* Manual Link Input */}
               <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                placeholder="https://images.unsplash.com/..."
+                style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background, marginTop: Spacing.sm }]}
+                placeholder="Hoặc nhập liên kết ảnh bìa trực tiếp (URL)..."
+                value={coverImage}
+                onChangeText={setCoverImage}
                 placeholderTextColor={colors.textTertiary}
                 autoCapitalize="none"
                 autoCorrect={false}
-                value={coverImage}
-                onChangeText={setCoverImage}
               />
-              {coverImage.trim().startsWith('http') ? (
-                <View style={[styles.previewContainer, { borderColor: colors.borderLight }]}>
-                  <Image
-                    source={{ uri: coverImage.trim() }}
-                    style={styles.imagePreview}
-                    resizeMode="cover"
-                  />
+            </View>
+
+            {/* Gallery Images (Thư viện ảnh bài viết) */}
+            <View style={[styles.inputGroup, { marginTop: Spacing.md }]}>
+              <ThemedText style={[styles.label, { color: colors.textSecondary }]}>Thư viện ảnh bài viết</ThemedText>
+              
+              {/* Gallery Scroll */}
+              {gallery.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryScrollContainer}>
+                  {gallery.map((imgUrl, idx) => (
+                    <View key={idx} style={[styles.galleryThumbContainer, { borderColor: colors.border }]}>
+                      <Image source={{ uri: imgUrl }} style={styles.galleryThumbImage} />
+                      <TouchableOpacity
+                        style={[styles.galleryRemoveBadge, { backgroundColor: colors.error }]}
+                        onPress={() => removeGalleryImage(idx)}
+                      >
+                        <IconSymbol name="xmark.circle.fill" size={16} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={[styles.emptyGalleryBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                  <IconSymbol name="photo.on.rectangle.angled" size={24} color={colors.textTertiary} />
+                  <ThemedText style={{ color: colors.textTertiary, fontSize: 12, marginTop: 4 }}>Chưa có ảnh trong thư viện</ThemedText>
                 </View>
-              ) : null}
+              )}
+
+              {/* Gallery Action Buttons */}
+              <View style={styles.photoActionsRow}>
+                <TouchableOpacity
+                  style={[styles.photoActionBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                  onPress={pickGalleryImage}
+                  disabled={isUploadingGallery}
+                >
+                  <IconSymbol name="photo.on.rectangle.angled" size={14} color={colors.primary} />
+                  <ThemedText style={[styles.photoActionText, { color: colors.text }]}>
+                    {isUploadingGallery ? 'Đang tải...' : 'Thêm từ thư viện'}
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.photoActionBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                  onPress={takeGalleryPhoto}
+                  disabled={isUploadingGallery}
+                >
+                  <IconSymbol name="camera.fill" size={14} color={colors.primary} />
+                  <ThemedText style={[styles.photoActionText, { color: colors.text }]}>Chụp ảnh mới</ThemedText>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.coordsRow}>
@@ -312,56 +611,102 @@ export default function AdminEditArticleScreen() {
                   <IconSymbol name="eye.fill" size={14} color={colors.textTertiary} />
                   <ThemedText style={[styles.miniLabel, { color: colors.textTertiary }]}>Lượt xem</ThemedText>
                 </View>
-                <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                  placeholder="0"
-                  placeholderTextColor={colors.textTertiary}
-                  keyboardType="number-pad"
-                  value={viewsInput}
-                  onChangeText={setViewsInput}
-                />
+                <View
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                      justifyContent: 'center',
+                    }
+                  ]}
+                >
+                  <ThemedText style={{ color: colors.textSecondary, fontFamily: FontFamily.interSemiBold }}>
+                    {viewsInput || '0'}
+                  </ThemedText>
+                </View>
               </View>
               <View style={{ flex: 1, gap: Spacing.xs }}>
                 <View style={styles.statLabelRow}>
                   <IconSymbol name="heart.fill" size={14} color={colors.textTertiary} />
                   <ThemedText style={[styles.miniLabel, { color: colors.textTertiary }]}>Lượt thích</ThemedText>
                 </View>
-                <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.text, backgroundColor: colors.background }]}
-                  placeholder="0"
-                  placeholderTextColor={colors.textTertiary}
-                  keyboardType="number-pad"
-                  value={likesInput}
-                  onChangeText={setLikesInput}
-                />
+                <View
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                      justifyContent: 'center',
+                    }
+                  ]}
+                >
+                  <ThemedText style={{ color: colors.textSecondary, fontFamily: FontFamily.interSemiBold }}>
+                    {likesInput || '0'}
+                  </ThemedText>
+                </View>
               </View>
             </View>
           </View>
         </Animated.View>
 
-        {/* Action Buttons */}
-        <Animated.View entering={FadeInDown.delay(280).duration(600)} style={styles.buttonRow}>
-          <Button
-            variant="outline"
-            size="large"
-            style={{ flex: 1 }}
-            onPress={() => router.back()}
-            disabled={isSaving}
-          >
-            Hủy
-          </Button>
-          <Button
-            variant="primary"
-            size="large"
-            style={{ flex: 2, backgroundColor: colors.primary }}
-            onPress={handleSave}
-            disabled={isSaving}
-            icon={isSaving ? <ActivityIndicator size="small" color="#FFFFFF" /> : undefined}
-          >
-            {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
-          </Button>
-        </Animated.View>
       </ScrollView>
+
+      {/* Sticky Action Buttons */}
+      <View style={[
+        styles.stickyBottomBar,
+        {
+          backgroundColor: isDark ? '#1C1B1B' : '#FFFFFF',
+          borderTopColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
+          paddingBottom: Math.max(insets.bottom, 12),
+        }
+      ]}>
+        <TouchableOpacity
+          style={[
+            styles.actionBtnCancel,
+            { borderColor: colors.primary }
+          ]}
+          onPress={() => router.back()}
+          disabled={isSaving}
+          activeOpacity={0.7}
+        >
+          <ThemedText style={[styles.actionBtnCancelText, { color: colors.primary }]}>
+            Hủy
+          </ThemedText>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.actionBtnSave,
+            { backgroundColor: colors.primary }
+          ]}
+          onPress={handleSave}
+          disabled={isSaving}
+          activeOpacity={0.8}
+        >
+          {isSaving ? (
+            <ActivityIndicator size="small" color="#131313" />
+          ) : (
+            <ThemedText style={styles.actionBtnSaveText}>
+              Lưu thay đổi
+            </ThemedText>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        onClose={() => {
+          setAlertConfig(prev => ({ ...prev, visible: false }));
+          if (alertConfig.onClose) alertConfig.onClose();
+        }}
+      />
     </View>
   );
 }
@@ -426,7 +771,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: Spacing.lg,
     gap: Spacing.sm,
-    paddingBottom: Spacing.xxl,
+    paddingBottom: 110,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -519,6 +864,49 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginTop: Spacing.md,
   },
+  stickyBottomBar: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: 12,
+    borderTopWidth: 0.5,
+    ...Platform.select({
+      ios: Shadows.medium,
+      web: Shadows.medium,
+      default: {},
+    }),
+  },
+  actionBtnCancel: {
+    flex: 1,
+    height: 46,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionBtnCancelText: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  actionBtnSave: {
+    flex: 2,
+    height: 46,
+    borderRadius: BorderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: Shadows.small,
+      web: Shadows.small,
+      default: {},
+    }),
+  },
+  actionBtnSaveText: {
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 15,
+    color: '#131313',
+    fontWeight: '700',
+  },
   previewContainer: {
     marginTop: Spacing.sm,
     borderRadius: BorderRadius.md,
@@ -528,5 +916,101 @@ const styles = StyleSheet.create({
   imagePreview: {
     width: '100%',
     height: 160,
+  },
+  imagePickerBox: {
+    width: '100%',
+    height: 180,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  pickerContent: {
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  pickerHint: {
+    ...Typography.bodySmall,
+    fontSize: 12,
+  },
+  previewImageContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  pickerImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removeImageBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoActionsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  photoActionBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: BorderRadius.md,
+    borderWidth: 0.5,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  photoActionText: {
+    ...Typography.bodySmall,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  galleryScrollContainer: {
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  galleryThumbContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  galleryThumbImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  galleryRemoveBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  emptyGalleryBox: {
+    width: '100%',
+    height: 80,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

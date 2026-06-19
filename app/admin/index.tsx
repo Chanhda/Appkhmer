@@ -14,23 +14,34 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CustomAlert } from '@/components/ui/custom-alert';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BorderRadius, Colors, FontFamily, Shadows, Spacing, Typography } from '@/constants/theme';
 import { useColorSchemePreference } from '@/contexts/color-scheme-context';
+import { useLanguage } from '@/contexts/language-context';
 import { fetchAllArticlesAdmin, approveArticle, rejectArticle, deleteArticle, type ArticleDocument } from '@/lib/article-repository';
 import { useRequireAdmin } from '@/lib/auth-session';
 import { fetchHeritages } from '@/lib/heritage-repository';
 import { getTimeAgo } from '@/lib/time-utils';
 
-const HERO_IMAGE = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1200&q=80';
+const HERO_IMAGE = require('../../assets/heritages/chua-ghositaram.png');
 
 type TabType = 'pending' | 'published' | 'rejected';
+
+const hexToRgba = (hex: string, alpha: number) => {
+  const cleanHex = hex.replace('#', '');
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring( cleanHex.length === 3 ? 2 : 4, cleanHex.length === 3 ? 3 : 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 export default function AdminDashboardScreen() {
   const { loading: authLoading } = useRequireAdmin();
   const router = useRouter();
   const { resolvedColorScheme } = useColorSchemePreference();
+  const { t, language } = useLanguage();
   const C = Colors[resolvedColorScheme];
   const isDark = resolvedColorScheme === 'dark';
   const insets = useSafeAreaInsets();
@@ -39,6 +50,54 @@ export default function AdminDashboardScreen() {
   const [heritageCount, setHeritageCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('pending');
+
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'info' | 'warning';
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void;
+    onClose?: () => void;
+    options?: {
+      text: string;
+      onPress: () => void;
+      style?: 'cancel' | 'destructive' | 'default';
+    }[];
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    type: 'success' | 'error' | 'info' | 'warning' = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    cancelText?: string,
+    onClose?: () => void,
+    options?: {
+      text: string;
+      onPress: () => void;
+      style?: 'cancel' | 'destructive' | 'default';
+    }[]
+  ) => {
+    setAlertConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      onConfirm,
+      confirmText,
+      cancelText,
+      onClose,
+      options,
+    });
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -62,10 +121,10 @@ export default function AdminDashboardScreen() {
       setArticles(prev =>
         prev.map(a => a.id === id ? { ...a, status: 'published', published: true } : a)
       );
-      if (Platform.OS === 'web') alert('Duyệt bài viết thành công!');
-      else Alert.alert('Thành công', 'Đã duyệt bài viết.');
+      if (Platform.OS === 'web') alert(t.admin.alerts.success);
+      else showAlert(t.admin.alerts.success, t.admin.alerts.success, 'success');
     } catch {
-      Alert.alert('Lỗi', 'Không thể duyệt bài viết.');
+      showAlert(t.admin.alerts.error, t.admin.alerts.approveError, 'error');
     }
   };
 
@@ -79,32 +138,48 @@ export default function AdminDashboardScreen() {
             : a
           )
         );
-        if (Platform.OS === 'web') alert('Đã từ chối bài viết.');
-        else Alert.alert('Thành công', 'Đã từ chối bài viết.');
+        if (Platform.OS === 'web') alert(t.admin.alerts.success);
+        else showAlert(t.admin.alerts.success, t.admin.alerts.success, 'success');
       } catch {
-        Alert.alert('Lỗi', 'Không thể từ chối bài viết.');
+        showAlert(t.admin.alerts.error, t.admin.alerts.rejectError, 'error');
       }
     };
 
     if (Platform.OS === 'web') {
-      const reason = prompt(`Lý do từ chối bài "${article.title}" (bỏ trống = mặc định):`);
+      const promptMsg = language === 'vi' ? `Lý do từ chối bài "${article.title}" (bỏ trống = mặc định):`
+        : language === 'km' ? `មូលហេតុបដិសេធអត្ថបទ "${article.title}" (ទុកទទេ = លំនាំដើម):`
+        : `Reason for rejecting article "${article.title}" (leave empty = default):`;
+      const reason = prompt(promptMsg);
       if (reason !== null) doReject(reason || undefined);
     } else {
-      Alert.alert(
-        'Từ chối bài viết',
-        `Từ chối bài "${article.title}"?`,
+      showAlert(
+        t.admin.alerts.rejectTitle,
+        `${t.admin.alerts.rejectMsg} "${article.title}"?`,
+        'warning',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
         [
-          { text: 'Hủy', style: 'cancel' },
           {
-            text: 'Từ chối (Không phù hợp)',
+            text: t.admin.alerts.rejectOptionAppropriate,
             style: 'destructive',
-            onPress: () => doReject('Nội dung không phù hợp với tiêu chí đăng tải'),
+            onPress: () => doReject(
+              language === 'vi' ? 'Nội dung không phù hợp với tiêu chí đăng tải'
+              : language === 'km' ? 'មាតិកាមិនសមស្របនឹងលក្ខណៈវិនិច្ឆ័យបោះពុម្ពផ្សាយ'
+              : 'Content is not suitable for publication criteria'
+            ),
           },
           {
-            text: 'Từ chối (Cần chỉnh sửa)',
+            text: t.admin.alerts.rejectOptionEdit,
             style: 'destructive',
-            onPress: () => doReject('Bài viết cần được chỉnh sửa và bổ sung thêm'),
+            onPress: () => doReject(
+              language === 'vi' ? 'Bài viết cần được chỉnh sửa và bổ sung thêm'
+              : language === 'km' ? 'អត្ថបទត្រូវការការកែសម្រួលនិងបន្ថែម'
+              : 'Article needs to be edited and supplemented'
+            ),
           },
+          { text: t.admin.alerts.cancel, style: 'cancel', onPress: () => {} },
         ]
       );
     }
@@ -115,20 +190,27 @@ export default function AdminDashboardScreen() {
       try {
         await deleteArticle(id);
         setArticles(prev => prev.filter(a => a.id !== id));
-        if (Platform.OS === 'web') alert('Xóa bài viết thành công!');
-        else Alert.alert('Thành công', 'Đã xóa bài viết.');
+        if (Platform.OS === 'web') alert(t.admin.alerts.deleteSuccess);
+        else showAlert(t.admin.alerts.success, t.admin.alerts.deleteSuccess, 'success');
       } catch {
-        Alert.alert('Lỗi', 'Không thể xóa bài viết.');
+        showAlert(t.admin.alerts.error, t.admin.alerts.deleteError, 'error');
       }
     };
 
     if (Platform.OS === 'web') {
-      if (confirm(`Xóa bài viết "${title}"?`)) doDelete();
+      const confirmMsg = language === 'vi' ? `Xóa bài viết "${title}"?`
+        : language === 'km' ? `លុបអត្ថបទ "${title}"?`
+        : `Delete article "${title}"?`;
+      if (confirm(confirmMsg)) doDelete();
     } else {
-      Alert.alert('Xác nhận xóa', `Xóa bài "${title}"?`, [
-        { text: 'Hủy', style: 'cancel' },
-        { text: 'Xóa', style: 'destructive', onPress: doDelete },
-      ]);
+      showAlert(
+        t.admin.alerts.confirmDeleteTitle,
+        `${t.admin.alerts.confirmDeleteMsg} "${title}"?`,
+        'warning',
+        doDelete,
+        t.admin.alerts.delete,
+        t.admin.alerts.cancel
+      );
     }
   };
 
@@ -141,14 +223,21 @@ export default function AdminDashboardScreen() {
   const published = articles.filter(a => getStatus(a) === 'published');
   const rejected = articles.filter(a => getStatus(a) === 'rejected');
   const tabArticles = activeTab === 'pending' ? pending : activeTab === 'published' ? published : rejected;
-
   const totalViews = articles.reduce((s, a) => s + (a.views ?? 0), 0);
+
+  const getGreeting = () => {
+    const hr = new Date().getHours();
+    if (hr < 12) return { text: t.admin.greetings.morning, sub: t.admin.greetings.morningSub };
+    if (hr < 18) return { text: t.admin.greetings.afternoon, sub: t.admin.greetings.afternoonSub };
+    return { text: t.admin.greetings.evening, sub: t.admin.greetings.eveningSub };
+  };
+  const greeting = getGreeting();
 
   if (authLoading || loading) {
     return (
       <View style={[styles.loadingScreen, { backgroundColor: C.background }]}>
         <ActivityIndicator size="large" color={C.primary} />
-        <Text style={[styles.loadingText, { color: C.textSecondary }]}>Đang tải...</Text>
+        <Text style={[styles.loadingText, { color: C.textSecondary }]}>{t.admin.loading}</Text>
       </View>
     );
   }
@@ -161,7 +250,7 @@ export default function AdminDashboardScreen() {
         style={[
           styles.stickyHeader,
           {
-            backgroundColor: isDark ? 'rgba(19,19,19,0.95)' : 'rgba(245,240,230,0.97)',
+            backgroundColor: isDark ? 'rgba(19,19,19,0.95)' : 'rgba(249,246,240,0.97)',
             borderBottomColor: `${C.border}40`,
             paddingTop: Math.max(insets.top, 12),
           },
@@ -171,7 +260,7 @@ export default function AdminDashboardScreen() {
           <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.backBtn, { backgroundColor: `${C.primary}15` }, pressed && { opacity: 0.7 }]}>
             <IconSymbol name="chevron.left" size={18} color={C.primary} />
           </Pressable>
-          <Text style={[styles.headerTitle, { color: C.primary }]}>Heritage</Text>
+          <Text style={[styles.headerTitle, { color: C.primary }]}>{t.admin.dashboardTitle}</Text>
           <View style={[styles.avatarPlaceholder, { borderColor: `${C.primary}30`, backgroundColor: C.surfaceHigh }]}>
             <IconSymbol name="person.fill" size={16} color={C.primary} />
           </View>
@@ -184,11 +273,11 @@ export default function AdminDashboardScreen() {
       >
         {/* ── Hero Banner ── */}
         <Animated.View entering={FadeIn.duration(600)} style={styles.heroWrap}>
-          <Image source={{ uri: HERO_IMAGE }} style={styles.heroImage} resizeMode="cover" />
+          <Image source={typeof HERO_IMAGE === 'number' ? HERO_IMAGE : { uri: HERO_IMAGE }} style={styles.heroImage} resizeMode="cover" />
           <View style={styles.heroGradient} />
           <View style={styles.heroContent}>
-            <Text style={[styles.heroTitle, { color: C.primary }]}>Quản trị viên</Text>
-            <Text style={[styles.heroSub, { color: C.textSecondary }]}>Hệ thống quản lý di sản</Text>
+            <Text style={styles.heroTitle}>{greeting.text}</Text>
+            <Text style={styles.heroSub}>{greeting.sub}</Text>
           </View>
         </Animated.View>
 
@@ -198,14 +287,19 @@ export default function AdminDashboardScreen() {
             {/* Wide card — total */}
             <View style={[
               styles.glassCard, styles.wideCard,
-              { backgroundColor: isDark ? 'rgba(30,30,30,0.6)' : 'rgba(255,255,255,0.8)', borderColor: `${C.primary}20` },
+              { 
+                backgroundColor: isDark ? 'rgba(242, 202, 80, 0.06)' : '#FFFDF9', 
+                borderColor: isDark ? 'rgba(242, 202, 80, 0.25)' : 'rgba(182, 139, 30, 0.3)',
+                borderLeftWidth: 4,
+                borderLeftColor: C.primary,
+              },
             ]}>
               <View>
-                <Text style={[styles.statLabel, { color: C.textTertiary }]}>TỔNG BÀI VIẾT</Text>
+                <Text style={[styles.statLabel, { color: C.textTertiary }]}>{t.admin.totalArticles}</Text>
                 <Text style={[styles.statBig, { color: C.primary }]}>{articles.length.toLocaleString()}</Text>
               </View>
-              <View style={[styles.statIcon, { backgroundColor: `${C.primary}10` }]}>
-                <IconSymbol name="book.fill" size={28} color={C.primary} />
+              <View style={[styles.statIcon, { backgroundColor: `${C.primary}15` }]}>
+                <IconSymbol name="book.fill" size={26} color={C.primary} />
               </View>
             </View>
 
@@ -213,23 +307,35 @@ export default function AdminDashboardScreen() {
             <View style={styles.miniStatsRow}>
               <View style={[
                 styles.glassCard, styles.miniCard,
-                { backgroundColor: isDark ? 'rgba(30,30,30,0.6)' : 'rgba(255,255,255,0.8)', borderColor: `${C.primary}20` },
+                { 
+                  backgroundColor: isDark ? 'rgba(242, 202, 80, 0.04)' : '#FFFDF9', 
+                  borderColor: isDark ? 'rgba(242, 202, 80, 0.15)' : 'rgba(182, 139, 30, 0.2)',
+                  borderLeftWidth: 3,
+                  borderLeftColor: C.primary,
+                },
               ]}>
-                <Text style={[styles.statLabel, { color: C.textTertiary }]}>CHỜ DUYỆT</Text>
+                <Text style={[styles.statLabel, { color: C.textTertiary }]}>{t.admin.pendingArticles}</Text>
                 <View style={styles.miniStatBottom}>
                   <Text style={[styles.statMedium, { color: C.primary }]}>{pending.length}</Text>
                   {pending.length > 0 && (
-                    <Text style={[styles.statSubGold, { color: C.primaryContainer }]}>+{pending.length} hôm nay</Text>
+                    <View style={styles.badgeWrapper}>
+                      <Text style={[styles.statSubGold, { color: C.primary }]}>+{pending.length}</Text>
+                    </View>
                   )}
                 </View>
               </View>
               <View style={[
                 styles.glassCard, styles.miniCard,
-                { backgroundColor: isDark ? 'rgba(30,30,30,0.6)' : 'rgba(255,255,255,0.8)', borderColor: `${C.primary}20` },
+                { 
+                  backgroundColor: isDark ? 'rgba(127, 222, 221, 0.04)' : '#F0F9F9', 
+                  borderColor: isDark ? 'rgba(127, 222, 221, 0.15)' : 'rgba(0, 112, 115, 0.2)',
+                  borderLeftWidth: 3,
+                  borderLeftColor: C.accent,
+                },
               ]}>
-                <Text style={[styles.statLabel, { color: C.textTertiary }]}>LƯỢT XEM</Text>
+                <Text style={[styles.statLabel, { color: C.textTertiary }]}>{t.admin.viewsStats}</Text>
                 <View style={styles.miniStatBottom}>
-                  <Text style={[styles.statMedium, { color: C.text }]}>
+                  <Text style={[styles.statMedium, { color: C.accent }]}>
                     {totalViews > 1000 ? `${(totalViews / 1000).toFixed(0)}K` : totalViews}
                   </Text>
                   <Text style={[styles.statSubTeal, { color: C.accent }]}>↑ 12%</Text>
@@ -237,34 +343,34 @@ export default function AdminDashboardScreen() {
               </View>
             </View>
 
-            {/* Quick links */}
-            <View style={styles.quickLinksRow}>
+            {/* Quick links Grid - Side by Side */}
+            <View style={styles.quickLinksGrid}>
               {[
-                { label: 'Bài viết', icon: 'doc.text.fill' as const, href: '/admin/articles', count: articles.length, color: C.accent },
-                { label: 'Di sản', icon: 'building.columns.fill' as const, href: '/admin/heritages', count: heritageCount, color: C.primary },
+                { label: t.admin.articlesLink, icon: 'doc.text.fill' as const, href: '/admin/articles', count: articles.length, color: C.accent },
+                { label: t.admin.heritagesLink, icon: 'building.columns.fill' as const, href: '/admin/heritages', count: heritageCount, color: C.primary },
               ].map(item => (
                 <TouchableOpacity
                   key={item.label}
                   style={[
                     styles.quickLink,
                     { 
-                      backgroundColor: isDark ? 'rgba(30,30,30,0.4)' : 'rgba(255,255,255,0.7)', 
-                      borderColor: `${C.border}35`,
+                      backgroundColor: isDark ? 'rgba(30,30,30,0.5)' : 'rgba(255,255,255,0.75)', 
+                      borderColor: `${C.border}30`,
                       borderLeftWidth: 3,
                       borderLeftColor: item.color,
                     }
                   ]}
-                  activeOpacity={0.8}
+                  activeOpacity={0.85}
                   onPress={() => router.push(item.href as Href)}
                 >
-                  <View style={[styles.quickLinkIcon, { backgroundColor: `${item.color}14` }]}>
-                    <IconSymbol name={item.icon} size={15} color={item.color} />
+                  <View style={[styles.quickLinkIcon, { backgroundColor: `${item.color}15` }]}>
+                    <IconSymbol name={item.icon} size={14} color={item.color} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.quickLinkLabel, { color: C.text }]}>{item.label}</Text>
-                    <Text style={[styles.quickLinkCount, { color: C.textTertiary }]}>{item.count} mục</Text>
+                    <Text style={[styles.quickLinkCount, { color: C.textTertiary }]}>{item.count}{t.admin.itemCount}</Text>
                   </View>
-                  <IconSymbol name="chevron.right" size={12} color={C.textTertiary} />
+                  <IconSymbol name="chevron.right" size={11} color={C.textTertiary} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -273,18 +379,30 @@ export default function AdminDashboardScreen() {
           {/* ── Tabs ── */}
           <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.tabsWrap}>
             {([
-              { key: 'pending', label: 'Chờ duyệt', count: pending.length },
-              { key: 'published', label: 'Đã đăng', count: published.length },
-              { key: 'rejected', label: 'Từ chối', count: rejected.length },
+              { key: 'pending', label: t.admin.tabPending, count: pending.length },
+              { key: 'published', label: t.admin.tabPublished, count: published.length },
+              { key: 'rejected', label: t.admin.tabRejected, count: rejected.length },
             ] as const).map(tab => {
               const active = activeTab === tab.key;
               return (
                 <Pressable
                   key={tab.key}
-                  style={[styles.tabPill, { borderColor: C.border }, active && { backgroundColor: C.primary, borderColor: C.primary }]}
+                  style={[
+                    styles.tabPill, 
+                    { 
+                      borderColor: active ? C.primary : `${C.border}40`,
+                      backgroundColor: active ? C.primary : 'transparent',
+                    }
+                  ]}
                   onPress={() => setActiveTab(tab.key)}
                 >
-                  <Text style={[styles.tabPillText, { color: C.textTertiary }, active && { color: '#131313', fontWeight: '700' }]}>
+                  <Text style={[
+                    styles.tabPillText, 
+                    { 
+                      color: active ? '#131313' : C.textTertiary,
+                      fontWeight: active ? '800' : '500',
+                    }
+                  ]}>
                     {tab.label}
                     {tab.count > 0 ? ` (${tab.count})` : ''}
                   </Text>
@@ -296,12 +414,12 @@ export default function AdminDashboardScreen() {
           {/* ── Articles List ── */}
           <View style={styles.articlesList}>
             {tabArticles.length === 0 ? (
-              <View style={styles.emptyState}>
+              <View style={[styles.emptyCard, { borderColor: `${C.border}30`, backgroundColor: isDark ? 'rgba(30,30,30,0.3)' : 'rgba(255,255,255,0.5)' }]}>
                 <IconSymbol name="doc.text" size={32} color={C.textTertiary} />
                 <Text style={[styles.emptyText, { color: C.textTertiary }]}>
-                  {activeTab === 'pending' ? 'Không có bài chờ duyệt'
-                    : activeTab === 'published' ? 'Chưa có bài đã đăng'
-                    : 'Không có bài bị từ chối'}
+                  {activeTab === 'pending' ? t.admin.emptyPending
+                    : activeTab === 'published' ? t.admin.emptyPublished
+                    : t.admin.emptyRejected}
                 </Text>
               </View>
             ) : (
@@ -327,15 +445,20 @@ export default function AdminDashboardScreen() {
         </View>
       </ScrollView>
 
-      {/* ── FAB ── */}
-      <Animated.View entering={FadeIn.delay(600).duration(400)} style={styles.fab}>
-        <Pressable
-          style={({ pressed }) => [styles.fabBtn, { backgroundColor: C.primary }, pressed && { transform: [{ scale: 0.9 }], opacity: 0.9 }]}
-          onPress={() => router.push('/admin/articles/new' as Href)}
-        >
-          <IconSymbol name="plus" size={26} color="#131313" />
-        </Pressable>
-      </Animated.View>
+      <CustomAlert
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        options={alertConfig.options}
+        onClose={() => {
+          setAlertConfig(prev => ({ ...prev, visible: false }));
+          if (alertConfig.onClose) alertConfig.onClose();
+        }}
+      />
     </View>
   );
 }
@@ -361,14 +484,36 @@ function AdminArticleCard({
   onDelete: () => void;
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
+  const btnStyles = {
+    view: {
+      bg: isDark ? 'rgba(127, 222, 221, 0.15)' : '#E0F2F1',
+      border: isDark ? 'rgba(127, 222, 221, 0.3)' : '#B2DFDB',
+      text: isDark ? '#7FDEDD' : '#007073',
+    },
+    edit: {
+      bg: isDark ? 'rgba(242, 202, 80, 0.15)' : '#FEF3C7',
+      border: isDark ? 'rgba(242, 202, 80, 0.3)' : '#FDE68A',
+      text: isDark ? '#F2CA50' : '#B68B1E',
+    },
+    delete: {
+      bg: isDark ? 'rgba(255, 180, 171, 0.15)' : '#FEE2E2',
+      border: isDark ? 'rgba(255, 180, 171, 0.3)' : '#FCA5A5',
+      text: isDark ? '#FFB4AB' : '#BA1A1A',
+    },
+  };
   const statusColors = {
-    pending: { bg: `${C.primary}20`, border: `${C.primary}30`, text: C.primary },
-    published: { bg: `${C.accent}20`, border: `${C.accent}30`, text: C.accent },
-    rejected: { bg: `${C.error}20`, border: `${C.error}30`, text: C.error },
+    pending: { bg: `${C.primary}18`, border: `${C.primary}35`, text: C.primary },
+    published: { bg: `${C.accent}18`, border: `${C.accent}35`, text: C.accent },
+    rejected: { bg: `${C.error}18`, border: `${C.error}35`, text: C.error },
   };
   const status = tab;
   const sc = statusColors[status];
-  const statusLabel = { pending: 'CHỜ DUYỆT', published: 'ĐÃ ĐĂNG', rejected: 'TỪ CHỐI' }[status];
+  const statusLabel = {
+    pending: t.admin.statusBadgePending,
+    published: t.admin.statusBadgePublished,
+    rejected: t.admin.statusBadgeRejected
+  }[status];
   const timeAgo = article.createdAt
     ? getTimeAgo(article.createdAt)
     : '';
@@ -376,12 +521,12 @@ function AdminArticleCard({
   return (
     <View style={[
       styles.articleCard,
-      { backgroundColor: isDark ? 'rgba(30,30,30,0.6)' : 'rgba(255,255,255,0.8)', borderColor: `${C.primary}20` },
-      tab === 'rejected' && { opacity: 0.75 },
+      { backgroundColor: isDark ? 'rgba(30,30,30,0.6)' : 'rgba(255,255,255,0.85)', borderColor: `${C.primary}15` },
+      tab === 'rejected' && { opacity: 0.8 },
     ]}>
       <View style={styles.articleCardTop}>
         {/* Thumbnail */}
-        <View style={[styles.articleThumb, { backgroundColor: C.surfaceHigh }, tab === 'rejected' && { opacity: 0.6 }]}>
+        <View style={[styles.articleThumb, { backgroundColor: C.surfaceHigh }, tab === 'rejected' && { opacity: 0.7 }]}>
           {article.coverImage ? (
             <Image source={{ uri: article.coverImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
           ) : (
@@ -400,87 +545,191 @@ function AdminArticleCard({
             <Text style={[styles.timeAgo, { color: C.textTertiary }]}>{timeAgo}</Text>
           </View>
           <Text style={[styles.articleCardTitle, { color: C.text }]} numberOfLines={2}>{article.title}</Text>
-          <Text style={[styles.articleCardAuthor, { color: C.textTertiary }]}>Tác giả: {article.author}</Text>
+          <Text style={[styles.articleCardAuthor, { color: C.textTertiary }]}>{t.admin.authorLabel}{article.author || t.admin.authorAnonymous}</Text>
         </View>
       </View>
 
       {/* Reject reason */}
       {tab === 'rejected' && article.rejectReason && (
-        <Text style={[styles.rejectReason, { color: C.error, borderTopColor: `${C.border}40` }]}>Lý do: {article.rejectReason}</Text>
+        <Text style={[styles.rejectReason, { color: C.error, borderTopColor: `${C.border}30` }]}>{t.admin.reasonLabel}{article.rejectReason}</Text>
       )}
 
       {/* Actions */}
-      <View style={[styles.articleCardActions, { borderTopColor: `${C.border}40` }]}>
+      <View style={[styles.articleCardActions, { borderTopColor: `${C.border}30` }]}>
         {tab === 'pending' && (
           <>
             <Pressable
-              style={({ pressed }) => [styles.actionBtn, styles.approveActionBtn, { backgroundColor: C.primary }, pressed && { opacity: 0.8 }]}
+              style={{ flex: 1.5 }}
               onPress={onApprove}
             >
-              <IconSymbol name="checkmark.circle.fill" size={14} color="#131313" />
-              <Text style={styles.approveActionBtnText}>Duyệt bài</Text>
+              {({ pressed }) => (
+                <View
+                  style={StyleSheet.flatten([
+                    styles.actionBtn,
+                    {
+                      backgroundColor: pressed ? hexToRgba(C.primary, 0.8) : C.primary,
+                      borderColor: hexToRgba(C.primary, 0.4),
+                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                    }
+                  ])}
+                >
+                  <IconSymbol name="checkmark.circle.fill" size={14} color="#131313" />
+                  <Text style={styles.approveActionBtnText}>{t.admin.actionApprove}</Text>
+                </View>
+              )}
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.actionBtn, styles.rejectActionBtn, { backgroundColor: 'rgba(186, 26, 26, 0.08)', borderColor: 'rgba(186, 26, 26, 0.25)' }, pressed && { opacity: 0.8 }]}
+              style={{ flex: 1 }}
               onPress={onReject}
             >
-              <IconSymbol name="xmark.circle.fill" size={14} color={C.error} />
-              <Text style={[styles.rejectActionBtnText, { color: C.error }]}>Từ chối</Text>
+              {({ pressed }) => (
+                <View
+                  style={StyleSheet.flatten([
+                    styles.actionBtn,
+                    {
+                      backgroundColor: pressed ? btnStyles.delete.border : btnStyles.delete.bg,
+                      borderColor: btnStyles.delete.border,
+                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                    }
+                  ])}
+                >
+                  <IconSymbol name="xmark.circle.fill" size={14} color={btnStyles.delete.text} />
+                  <Text style={[styles.rejectActionBtnText, { color: btnStyles.delete.text }]}>{t.admin.actionReject}</Text>
+                </View>
+              )}
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.actionBtn, styles.editActionBtnFull, { backgroundColor: `${C.primary}12`, borderColor: `${C.primary}30` }, pressed && { opacity: 0.8 }]}
+              style={{ flex: 1 }}
               onPress={onNavigate}
             >
-              <IconSymbol name="pencil" size={14} color={C.primary} />
-              <Text style={[styles.editActionBtnText, { color: C.primary }]}>Sửa</Text>
+              {({ pressed }) => (
+                <View
+                  style={StyleSheet.flatten([
+                    styles.actionBtn,
+                    {
+                      backgroundColor: pressed ? btnStyles.edit.border : btnStyles.edit.bg,
+                      borderColor: btnStyles.edit.border,
+                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                    }
+                  ])}
+                >
+                  <IconSymbol name="pencil" size={14} color={btnStyles.edit.text} />
+                  <Text style={[styles.editActionBtnText, { color: btnStyles.edit.text }]}>{t.admin.actionEdit}</Text>
+                </View>
+              )}
             </Pressable>
           </>
         )}
         {tab === 'published' && (
           <>
             <Pressable
-              style={({ pressed }) => [styles.actionBtn, styles.viewActionBtn, { backgroundColor: 'rgba(0, 112, 115, 0.08)', borderColor: 'rgba(0, 112, 115, 0.25)' }, pressed && { opacity: 0.8 }]}
+              style={{ flex: 1 }}
               onPress={() => router.push(`/articles/${article.id}` as Href)}
             >
-              <IconSymbol name="eye.fill" size={14} color={C.accent} />
-              <Text style={[styles.viewActionBtnText, { color: C.accent }]}>Xem</Text>
+              {({ pressed }) => (
+                <View
+                  style={StyleSheet.flatten([
+                    styles.actionBtn,
+                    {
+                      backgroundColor: pressed ? btnStyles.view.border : btnStyles.view.bg,
+                      borderColor: btnStyles.view.border,
+                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                    }
+                  ])}
+                >
+                  <IconSymbol name="eye.fill" size={14} color={btnStyles.view.text} />
+                  <Text style={[styles.viewActionBtnText, { color: btnStyles.view.text }]}>{t.admin.actionView}</Text>
+                </View>
+              )}
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.actionBtn, styles.editActionBtnFull, { backgroundColor: `${C.primary}12`, borderColor: `${C.primary}30` }, pressed && { opacity: 0.8 }]}
+              style={{ flex: 1 }}
               onPress={onNavigate}
             >
-              <IconSymbol name="pencil" size={14} color={C.primary} />
-              <Text style={[styles.editActionBtnText, { color: C.primary }]}>Sửa</Text>
+              {({ pressed }) => (
+                <View
+                  style={StyleSheet.flatten([
+                    styles.actionBtn,
+                    {
+                      backgroundColor: pressed ? btnStyles.edit.border : btnStyles.edit.bg,
+                      borderColor: btnStyles.edit.border,
+                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                    }
+                  ])}
+                >
+                  <IconSymbol name="pencil" size={14} color={btnStyles.edit.text} />
+                  <Text style={[styles.editActionBtnText, { color: btnStyles.edit.text }]}>{t.admin.actionEdit}</Text>
+                </View>
+              )}
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.actionBtn, styles.deleteActionBtn, { backgroundColor: 'rgba(186, 26, 26, 0.08)', borderColor: 'rgba(186, 26, 26, 0.25)' }, pressed && { opacity: 0.8 }]}
+              style={{ flex: 1 }}
               onPress={onDelete}
             >
-              <IconSymbol name="trash.fill" size={14} color={C.error} />
-              <Text style={[styles.deleteActionBtnText, { color: C.error }]}>Xóa</Text>
+              {({ pressed }) => (
+                <View
+                  style={StyleSheet.flatten([
+                    styles.actionBtn,
+                    {
+                      backgroundColor: pressed ? btnStyles.delete.border : btnStyles.delete.bg,
+                      borderColor: btnStyles.delete.border,
+                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                    }
+                  ])}
+                >
+                  <IconSymbol name="trash.fill" size={14} color={btnStyles.delete.text} />
+                  <Text style={[styles.deleteActionBtnText, { color: btnStyles.delete.text }]}>{t.admin.actionDelete}</Text>
+                </View>
+              )}
             </Pressable>
           </>
         )}
         {tab === 'rejected' && (
           <>
             <Pressable
-              style={({ pressed }) => [styles.actionBtn, styles.approveActionBtn, { backgroundColor: C.primary }, pressed && { opacity: 0.8 }]}
+              style={{ flex: 1.5 }}
               onPress={onApprove}
             >
-              <IconSymbol name="arrow.uturn.left" size={14} color="#131313" />
-              <Text style={styles.approveActionBtnText}>Duyệt lại</Text>
+              {({ pressed }) => (
+                <View
+                  style={StyleSheet.flatten([
+                    styles.actionBtn,
+                    {
+                      backgroundColor: pressed ? hexToRgba(C.primary, 0.8) : C.primary,
+                      borderColor: hexToRgba(C.primary, 0.4),
+                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                    }
+                  ])}
+                >
+                  <IconSymbol name="arrow.uturn.left" size={14} color="#131313" />
+                  <Text style={styles.approveActionBtnText}>{t.admin.actionApproveAgain}</Text>
+                </View>
+              )}
             </Pressable>
 
             <Pressable
-              style={({ pressed }) => [styles.actionBtn, styles.deleteActionBtn, { backgroundColor: 'rgba(186, 26, 26, 0.08)', borderColor: 'rgba(186, 26, 26, 0.25)' }, pressed && { opacity: 0.8 }]}
+              style={{ flex: 1 }}
               onPress={onDelete}
             >
-              <IconSymbol name="trash.fill" size={14} color={C.error} />
-              <Text style={[styles.deleteActionBtnText, { color: C.error }]}>Xóa hẳn</Text>
+              {({ pressed }) => (
+                <View
+                  style={StyleSheet.flatten([
+                    styles.actionBtn,
+                    {
+                      backgroundColor: pressed ? btnStyles.delete.border : btnStyles.delete.bg,
+                      borderColor: btnStyles.delete.border,
+                      transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                    }
+                  ])}
+                >
+                  <IconSymbol name="trash.fill" size={14} color={btnStyles.delete.text} />
+                  <Text style={[styles.deleteActionBtnText, { color: btnStyles.delete.text }]}>{t.admin.actionDeletePermanent}</Text>
+                </View>
+              )}
             </Pressable>
           </>
         )}
@@ -498,9 +747,13 @@ const styles = StyleSheet.create({
 
   // Header
   stickyHeader: {
-    paddingBottom: 12,
+    paddingBottom: 14,
     borderBottomWidth: 0.5,
     zIndex: 100,
+    ...Platform.select({
+      web: { backdropFilter: 'blur(16px)' } as any,
+      default: {},
+    }),
   },
   headerInner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -509,28 +762,43 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 36, height: 36, borderRadius: 18,
     justifyContent: 'center', alignItems: 'center',
+    borderWidth: 0.5,
+    borderColor: 'rgba(182,139,30,0.2)',
   },
-  headerTitle: { ...Typography.headlineMedium },
+  headerTitle: { 
+    ...Typography.headlineMedium,
+    fontFamily: FontFamily.playfairBold,
+    letterSpacing: -0.5,
+  },
   avatarPlaceholder: {
     width: 36, height: 36, borderRadius: 18,
-    borderWidth: 1,
+    borderWidth: 0.8,
     justifyContent: 'center', alignItems: 'center',
   },
 
-  scrollContent: { paddingBottom: 120 },
+  scrollContent: { paddingBottom: 140 },
 
   // Hero
-  heroWrap: { width: '100%', height: 192, position: 'relative', overflow: 'hidden' },
+  heroWrap: { width: '100%', height: 160, position: 'relative', overflow: 'hidden' },
   heroImage: { width: '100%', height: '100%', opacity: 0.55 },
   heroGradient: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, height: '70%',
-    backgroundColor: 'rgba(19,19,19,0.8)',
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: '100%',
+    backgroundColor: 'rgba(19,19,19,0.65)',
   },
   heroContent: {
-    position: 'absolute', bottom: Spacing.lg, left: Spacing.containerMargin, right: Spacing.containerMargin,
+    position: 'absolute', bottom: Spacing.md, left: Spacing.containerMargin, right: Spacing.containerMargin,
   },
-  heroTitle: { ...Typography.headlineLarge },
-  heroSub: { ...Typography.labelMedium, marginTop: 2 },
+  heroTitle: { 
+    ...Typography.headlineLarge,
+    fontFamily: FontFamily.playfairBold,
+    color: '#FFEAA7',
+  },
+  heroSub: { 
+    ...Typography.bodySmall, 
+    color: '#D0C5AF', 
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
 
   body: { padding: Spacing.containerMargin, gap: Spacing.lg },
 
@@ -547,69 +815,121 @@ const styles = StyleSheet.create({
   wideCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
   miniStatsRow: { flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.md },
   miniCard: { flex: 1 },
-  statLabel: { ...Typography.labelSmall, letterSpacing: 0.8, marginBottom: Spacing.xs },
-  statBig: { ...Typography.headlineLarge, fontFamily: FontFamily.playfairBold },
-  statMedium: { ...Typography.headlineMedium, fontFamily: FontFamily.playfairBold },
+  statLabel: { 
+    ...Typography.labelSmall, 
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2, 
+    marginBottom: Spacing.xs 
+  },
+  statBig: { 
+    ...Typography.displaySmall, 
+    fontFamily: FontFamily.playfairBold,
+    letterSpacing: -0.5,
+  },
+  statMedium: { 
+    ...Typography.headlineMedium, 
+    fontFamily: FontFamily.playfairBold,
+    letterSpacing: -0.3,
+  },
   miniStatBottom: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: Spacing.xs },
-  statSubGold: { ...Typography.labelSmall },
-  statSubTeal: { ...Typography.labelSmall },
+  badgeWrapper: {
+    backgroundColor: 'rgba(242, 202, 80, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  statSubGold: { 
+    ...Typography.labelSmall,
+    fontWeight: '800',
+  },
+  statSubTeal: { 
+    ...Typography.labelSmall,
+    fontWeight: '700',
+  },
   statIcon: {
-    width: 48, height: 48, borderRadius: BorderRadius.md,
+    width: 44, height: 44, borderRadius: BorderRadius.md,
     justifyContent: 'center', alignItems: 'center',
   },
 
-  // Quick links
-  quickLinksRow: { gap: Spacing.sm },
+  // Quick links Grid
+  quickLinksGrid: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.xs },
   quickLink: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    flex: 1,
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     borderWidth: 0.5,
-    borderRadius: BorderRadius.lg, padding: Spacing.md,
+    borderRadius: BorderRadius.md, 
+    padding: Spacing.sm,
+    ...Shadows.small,
   },
   quickLinkIcon: {
-    width: 36, height: 36, borderRadius: BorderRadius.md,
+    width: 32, height: 32, borderRadius: BorderRadius.sm,
     justifyContent: 'center', alignItems: 'center',
   },
   quickLinkLabel: {
     fontFamily: FontFamily.interSemiBold,
-    fontSize: 14,
+    fontSize: 13,
   },
-  quickLinkCount: { ...Typography.labelSmall, marginTop: 2 },
+  quickLinkCount: { ...Typography.labelSmall, fontSize: 10, marginTop: 1 },
 
   // Tabs
-  tabsWrap: { flexDirection: 'row', gap: Spacing.sm },
+  tabsWrap: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
   tabPill: {
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
+    flex: 1,
+    paddingVertical: 10,
     borderRadius: BorderRadius.full,
-    borderWidth: 0.5,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: Shadows.small,
+      web: Shadows.small,
+      default: {},
+    }),
   },
-  tabPillText: { ...Typography.labelMedium },
+  tabPillText: { 
+    ...Typography.labelMedium,
+    fontSize: 12,
+  },
 
   // Articles
   articlesList: { gap: Spacing.md },
-  emptyState: { alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xl },
-  emptyText: { ...Typography.bodyMedium },
+  emptyCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  emptyText: { ...Typography.bodySmall, fontWeight: '600' },
   articleCard: {
     borderWidth: 0.5,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     gap: Spacing.md,
-    ...Shadows.medium,
+    ...Platform.select({
+      ios: Shadows.medium,
+      web: Shadows.medium,
+      default: {},
+    }),
   },
   articleCardTop: { flexDirection: 'row', gap: Spacing.md },
   articleThumb: {
-    width: 72, height: 72, borderRadius: BorderRadius.md,
+    width: 68, height: 68, borderRadius: BorderRadius.md,
     overflow: 'hidden', flexShrink: 0,
   },
-  articleCardInfo: { flex: 1, gap: 5, justifyContent: 'center' },
+  articleCardInfo: { flex: 1, gap: 4, justifyContent: 'center' },
   articleCardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statusBadge: {
     borderWidth: 0.5, borderRadius: BorderRadius.xs,
     paddingHorizontal: 6, paddingVertical: 2,
   },
-  statusBadgeText: { fontSize: 9, fontWeight: '700', letterSpacing: 1 },
-  timeAgo: { ...Typography.labelSmall },
-  articleCardTitle: { ...Typography.bodyLarge, fontWeight: '700', lineHeight: 22, fontSize: 16 },
-  articleCardAuthor: { ...Typography.labelSmall },
+  statusBadgeText: { fontSize: 8, fontWeight: '800', letterSpacing: 0.8 },
+  timeAgo: { ...Typography.labelSmall, fontSize: 10 },
+  articleCardTitle: { ...Typography.titleSmall, fontWeight: '700', lineHeight: 20 },
+  articleCardAuthor: { ...Typography.labelSmall, fontSize: 11 },
   rejectReason: {
     ...Typography.labelSmall, fontStyle: 'italic',
     borderTopWidth: 0.5, paddingTop: Spacing.sm,
@@ -624,28 +944,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xs,
-    paddingVertical: 8,
-    borderRadius: BorderRadius.full,
-    height: 38,
+    gap: 6,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
+    flex: 1,
+    ...Shadows.small,
   },
   approveActionBtn: {
-    flex: 2,
+    flex: 1.5,
     ...Shadows.goldGlow,
-    shadowColor: '#B68B1E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: 'rgba(212,175,55,0.4)',
   },
   approveActionBtnText: {
-    ...Typography.labelSmall,
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
     color: '#131313',
     fontWeight: '800',
   },
@@ -653,45 +966,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rejectActionBtnText: {
-    ...Typography.labelSmall,
-    fontWeight: '800',
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    fontWeight: '700',
   },
   editActionBtnFull: {
     flex: 1,
   },
   editActionBtnText: {
-    ...Typography.labelSmall,
-    fontWeight: '800',
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    fontWeight: '700',
   },
   viewActionBtn: {
     flex: 1,
   },
   viewActionBtnText: {
-    ...Typography.labelSmall,
-    fontWeight: '800',
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    fontWeight: '700',
   },
   deleteActionBtn: {
     flex: 1,
   },
   deleteActionBtnText: {
-    ...Typography.labelSmall,
-    fontWeight: '800',
-  },
-
-  // FAB
-  fab: { position: 'absolute', bottom: 100, right: Spacing.lg },
-  fabBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F2CA50',
-    ...Shadows.goldGlow,
-    shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-});
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    fontWeight: '700',
+  },});

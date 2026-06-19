@@ -12,6 +12,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
   Animated as RNAnimated,
 } from 'react-native';
@@ -25,6 +26,7 @@ import { useColorSchemePreference } from '@/contexts/color-scheme-context';
 import { type HeritageDocument, fetchHeritageById, isHeritageLikedLocally, toggleHeritageLike, incrementHeritageViews } from '@/lib/heritage-repository';
 import { useLanguage } from '@/contexts/language-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getHeritageImageSource } from '@/constants/image-resolver';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const HERO_H = Math.min(SH * 0.52, 440);
@@ -203,9 +205,11 @@ export default function HeritageDetailScreen() {
     );
   }
 
-  const galleryImages = heritage.coverImage
-    ? [heritage.coverImage, ...GALLERY_IMGS.slice(0, 3)]
-    : GALLERY_IMGS;
+  const galleryImages = Array.isArray(heritage.gallery) && heritage.gallery.length > 0
+    ? heritage.gallery
+    : (heritage.coverImage
+        ? [heritage.coverImage, ...GALLERY_IMGS.slice(0, 3)]
+        : GALLERY_IMGS);
 
   return (
     <View style={[styles.screen, { backgroundColor: C.background }]}>
@@ -284,90 +288,132 @@ export default function HeritageDetailScreen() {
         scrollEventThrottle={16}
       >
         {/* ── Hero with parallax ── */}
-        <View style={styles.heroWrap}>
-          <RNAnimated.View
-            style={[
-              styles.heroImgContainer,
-              {
-                transform: [
-                  { translateY: heroTranslateY },
-                  { scale: heroScale },
-                ],
-              },
-            ]}
-          >
-            <Image
-              source={{ uri: heritage.coverImage ?? GALLERY_IMGS[0] }}
-              style={styles.heroImage}
-              resizeMode="cover"
-            />
-          </RNAnimated.View>
-
-          {/* Dark gradient overlays */}
-          <LinearGradient
-            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)']}
-            style={styles.heroBotGrad}
-          />
-
-          {/* Hero content: badge + title */}
-          <View style={styles.heroContent}>
-            <Animated.View entering={FadeInDown.delay(200).duration(600)}>
-              <View style={[
-                styles.typeBadge,
-                { backgroundColor: heritage.type === 'intangible' ? `${C.accent}22` : `${C.primary}22`,
-                  borderColor: heritage.type === 'intangible' ? `${C.accent}50` : `${C.primary}50` },
-              ]}>
-                <IconSymbol
-                  name={heritage.type === 'intangible' ? 'music.note' : 'building.columns'}
-                  size={10}
-                  color={heritage.type === 'intangible' ? C.accent : C.primary}
+        {(() => {
+          const coverSrc = getHeritageImageSource(heritage.id, heritage.coverImage, heritage.type);
+          const hasCoverImage = true;
+          return (
+            <View style={styles.heroWrap}>
+              <RNAnimated.View
+                style={[
+                  styles.heroImgContainer,
+                  {
+                    transform: [
+                      { translateY: heroTranslateY },
+                      { scale: heroScale },
+                    ],
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.015)' : 'rgba(182, 139, 30, 0.02)',
+                  },
+                ]}
+              >
+                <Image
+                  source={coverSrc}
+                  style={styles.heroImage}
+                  resizeMode="cover"
                 />
-                <Text style={[
-                  styles.typeBadgeText,
-                  { color: heritage.type === 'intangible' ? C.accent : C.primary },
-                ]}>
-                  {typeLabel(heritage.type)}
-                </Text>
+              </RNAnimated.View>
+
+              {/* Dark gradient overlays */}
+              <LinearGradient
+                colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)']}
+                style={styles.heroBotGrad}
+              />
+
+              {/* Hero content: badge + title */}
+              <View style={styles.heroContent}>
+                <Animated.View entering={FadeInDown.delay(200).duration(600)}>
+                  <View style={[
+                    styles.typeBadge,
+                    { 
+                      backgroundColor: heritage.type === 'intangible' ? `${C.accent}16` : `${C.primary}16`,
+                      borderColor: heritage.type === 'intangible' ? `${C.accent}45` : `${C.primary}45` 
+                    },
+                  ]}>
+                    <IconSymbol
+                      name={heritage.type === 'intangible' ? 'music.note' : 'building.columns'}
+                      size={10}
+                      color={heritage.type === 'intangible' ? C.accent : C.primary}
+                    />
+                    <Text style={[
+                      styles.typeBadgeText,
+                      { color: heritage.type === 'intangible' ? C.accent : C.primary },
+                    ]}>
+                      {typeLabel(heritage.type)}
+                    </Text>
+                  </View>
+                </Animated.View>
+
+                <Animated.View entering={FadeInDown.delay(300).duration(600)}>
+                  <Text style={[
+                    styles.heroTitle, 
+                    { color: hasCoverImage ? '#FFFFFF' : C.text }
+                  ]}>
+                    {heritage.title}
+                  </Text>
+                </Animated.View>
+
+                {heritage.subtitle && (
+                  <Animated.View entering={FadeInDown.delay(380).duration(500)}>
+                    <Text style={[
+                      styles.heroSubtitle, 
+                      { color: hasCoverImage ? 'rgba(255,255,255,0.82)' : C.textSecondary }
+                    ]} numberOfLines={2}>
+                      {heritage.subtitle}
+                    </Text>
+                  </Animated.View>
+                )}
+
+                {/* Meta chips */}
+                <Animated.View entering={FadeInDown.delay(440).duration(500)} style={styles.heroMeta}>
+                  {heritage.province && (
+                    <View style={[
+                      styles.metaChip, 
+                      !hasCoverImage && { 
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.035)', 
+                        borderColor: `${C.primary}25` 
+                      }
+                    ]}>
+                      <IconSymbol name="location.fill" size={11} color={hasCoverImage ? "rgba(255,255,255,0.7)" : C.textSecondary} />
+                      <Text style={[
+                        styles.metaChipText, 
+                        !hasCoverImage && { color: C.textSecondary }
+                      ]}>{heritage.province}</Text>
+                    </View>
+                  )}
+                  {heritage.builtYear && (
+                    <View style={[
+                      styles.metaChip, 
+                      !hasCoverImage && { 
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.035)', 
+                        borderColor: `${C.primary}25` 
+                      }
+                    ]}>
+                      <IconSymbol name="calendar" size={11} color={hasCoverImage ? "rgba(255,255,255,0.7)" : C.textSecondary} />
+                      <Text style={[
+                        styles.metaChipText, 
+                        !hasCoverImage && { color: C.textSecondary }
+                      ]}>{heritage.builtYear}</Text>
+                    </View>
+                  )}
+                  {heritage.category && (
+                    <View style={[
+                      styles.metaChip, 
+                      !hasCoverImage && { 
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.035)', 
+                        borderColor: `${C.primary}25` 
+                      }
+                    ]}>
+                      <IconSymbol name="tag.fill" size={11} color={hasCoverImage ? "rgba(255,255,255,0.7)" : C.textSecondary} />
+                      <Text style={[
+                        styles.metaChipText, 
+                        !hasCoverImage && { color: C.textSecondary }
+                      ]}>{heritage.category}</Text>
+                    </View>
+                  )}
+                </Animated.View>
               </View>
-            </Animated.View>
-
-            <Animated.View entering={FadeInDown.delay(300).duration(600)}>
-              <Text style={[styles.heroTitle, { color: '#FFFFFF' }]}>
-                {heritage.title}
-              </Text>
-            </Animated.View>
-
-            {heritage.subtitle && (
-              <Animated.View entering={FadeInDown.delay(380).duration(500)}>
-                <Text style={[styles.heroSubtitle, { color: 'rgba(255,255,255,0.78)' }]} numberOfLines={2}>
-                  {heritage.subtitle}
-                </Text>
-              </Animated.View>
-            )}
-
-            {/* Meta chips */}
-            <Animated.View entering={FadeInDown.delay(440).duration(500)} style={styles.heroMeta}>
-              {heritage.province && (
-                <View style={styles.metaChip}>
-                  <IconSymbol name="location.fill" size={11} color="rgba(255,255,255,0.7)" />
-                  <Text style={styles.metaChipText}>{heritage.province}</Text>
-                </View>
-              )}
-              {heritage.builtYear && (
-                <View style={styles.metaChip}>
-                  <IconSymbol name="calendar" size={11} color="rgba(255,255,255,0.7)" />
-                  <Text style={styles.metaChipText}>{heritage.builtYear}</Text>
-                </View>
-              )}
-              {heritage.category && (
-                <View style={styles.metaChip}>
-                  <IconSymbol name="tag.fill" size={11} color="rgba(255,255,255,0.7)" />
-                  <Text style={styles.metaChipText}>{heritage.category}</Text>
-                </View>
-              )}
-            </Animated.View>
-          </View>
-        </View>
+            </View>
+          );
+        })()}
 
         {/* ── Stats bar ── */}
         {(heritage.views !== undefined || heritage.likes !== undefined) && (
@@ -520,88 +566,82 @@ export default function HeritageDetailScreen() {
           </Animated.View>
 
           {/* Location info */}
-          {(heritage.province || heritage.location) && (
-            <Animated.View entering={FadeInDown.delay(400).duration(600)}>
-              <View
-                style={[
-                  styles.locationBanner,
-                  { 
-                    backgroundColor: isDark ? 'rgba(30,30,30,0.4)' : 'rgba(255,255,255,0.7)', 
-                    borderColor: `${C.border}35`,
-                    borderLeftWidth: 3,
-                    borderLeftColor: C.primary,
-                    flexDirection: 'column',
-                    gap: 12,
-                    alignItems: 'stretch',
-                  }
-                ]}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <View style={styles.locationLeftGroup}>
-                    <View style={[styles.locationIconWrap, { backgroundColor: `${C.primary}14` }]}>
-                      <IconSymbol name="mappin.circle.fill" size={16} color={C.primary} />
-                    </View>
-                    <View style={styles.locationTextWrap}>
-                      <Text style={{ color: C.text, fontFamily: FontFamily.interSemiBold, fontSize: 14 }}>
-                        {heritage.title}
-                      </Text>
-                      <Text style={{ color: C.textSecondary, fontFamily: FontFamily.inter, fontSize: 12, marginTop: 2 }}>
-                        {heritage.province ?? 'Nam Bộ, Việt Nam'}
-                      </Text>
-                    </View>
+          {heritage.type === 'tangible' && (heritage.province || heritage.location) && (
+            <View
+              style={[
+                styles.locationBanner,
+                { 
+                  backgroundColor: isDark ? 'rgba(30,30,30,0.4)' : 'rgba(255,255,255,0.7)', 
+                  borderColor: `${C.border}35`,
+                  borderLeftWidth: 3,
+                  borderLeftColor: C.primary,
+                  flexDirection: 'column',
+                  gap: 12,
+                  alignItems: 'stretch',
+                }
+              ]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={styles.locationLeftGroup}>
+                  <View style={[styles.locationIconWrap, { backgroundColor: `${C.primary}14` }]}>
+                    <IconSymbol name="mappin.circle.fill" size={16} color={C.primary} />
+                  </View>
+                  <View style={styles.locationTextWrap}>
+                    <Text style={{ color: C.text, fontFamily: FontFamily.interSemiBold, fontSize: 14 }}>
+                      {heritage.title}
+                    </Text>
+                    <Text style={{ color: C.textSecondary, fontFamily: FontFamily.inter, fontSize: 12, marginTop: 2 }}>
+                      {heritage.province ?? 'Nam Bộ, Việt Nam'}
+                    </Text>
                   </View>
                 </View>
-
-                {/* Actions row */}
-                <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
-                  <Pressable
-                    style={({ pressed }) => [
-                      {
-                        flex: 1,
-                        flexDirection: 'row',
-                        height: 38,
-                        borderRadius: BorderRadius.md,
-                        borderWidth: 0.5,
-                        borderColor: C.border,
-                        backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        gap: 6,
-                        opacity: pressed ? 0.75 : 1,
-                      }
-                    ]}
-                    onPress={() => router.push('/map')}
-                  >
-                    <IconSymbol name="map.fill" size={14} color={C.primary} />
-                    <Text style={{ color: C.text, fontFamily: FontFamily.interSemiBold, fontSize: 12 }}>
-                      {language === 'vi' ? 'Xem Bản Đồ' : language === 'km' ? 'មើលផែនទី' : 'View Map'}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={({ pressed }) => [
-                      {
-                        flex: 1,
-                        flexDirection: 'row',
-                        height: 38,
-                        borderRadius: BorderRadius.md,
-                        backgroundColor: C.primary,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        gap: 6,
-                        opacity: pressed ? 0.75 : 1,
-                      }
-                    ]}
-                    onPress={handleGetDirections}
-                  >
-                    <IconSymbol name="location.fill" size={14} color={isDark ? '#131313' : '#F9F6F0'} />
-                    <Text style={{ color: isDark ? '#131313' : '#F9F6F0', fontFamily: FontFamily.interSemiBold, fontSize: 12 }}>
-                      {language === 'vi' ? 'Chỉ Đường Đi' : language === 'km' ? 'ចង្អុលផ្លូវ' : 'Get Directions'}
-                    </Text>
-                  </Pressable>
-                </View>
               </View>
-            </Animated.View>
+
+              {/* Actions row */}
+              <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: 4 }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    height: 44,
+                    borderRadius: BorderRadius.full,
+                    borderWidth: 1.5,
+                    borderColor: C.primary,
+                    backgroundColor: 'transparent',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                  onPress={() => router.push('/map')}
+                  activeOpacity={0.7}
+                >
+                  <IconSymbol name="map.fill" size={14} color={C.primary} />
+                  <Text style={{ color: C.primary, fontFamily: FontFamily.interSemiBold, fontSize: 13, fontWeight: '700' }}>
+                    {language === 'vi' ? 'Xem Bản Đồ' : language === 'km' ? 'មើលផែនទី' : 'View Map'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    flexDirection: 'row',
+                    height: 44,
+                    borderRadius: BorderRadius.full,
+                    backgroundColor: C.primary,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                  onPress={handleGetDirections}
+                  activeOpacity={0.8}
+                >
+                  <IconSymbol name="location.fill" size={14} color="#131313" />
+                  <Text style={{ color: '#131313', fontFamily: FontFamily.interSemiBold, fontSize: 13, fontWeight: '700' }}>
+                    {language === 'vi' ? 'Chỉ Đường Đi' : language === 'km' ? 'ចង្អុលផ្លូវ' : 'Get Directions'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
 
         </View>
@@ -703,16 +743,10 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     fontWeight: '700',
     letterSpacing: -0.3,
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 6,
   },
   heroSubtitle: {
     fontFamily: FontFamily.inter,
     fontSize: 15, lineHeight: 22,
-    textShadowColor: 'rgba(0,0,0,0.4)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   heroMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   metaChip: {

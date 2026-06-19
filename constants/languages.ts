@@ -168,6 +168,77 @@ export interface Translations {
     tryDifferentSearch: string;
     tryDifferentCategory: string;
   };
+  admin: {
+    dashboardTitle: string;
+    articlesTitle: string;
+    heritagesTitle: string;
+    totalArticles: string;
+    pendingArticles: string;
+    viewsStats: string;
+    articlesLink: string;
+    heritagesLink: string;
+    itemCount: string;
+    tabPending: string;
+    tabPublished: string;
+    tabRejected: string;
+    emptyPending: string;
+    emptyPublished: string;
+    emptyRejected: string;
+    actionApprove: string;
+    actionReject: string;
+    actionEdit: string;
+    actionView: string;
+    actionDelete: string;
+    actionApproveAgain: string;
+    actionDeletePermanent: string;
+    addNewArticle: string;
+    addNewHeritage: string;
+    searchPlaceholderArticles: string;
+    searchPlaceholderHeritages: string;
+    filterAll: string;
+    resultCountArticles: string;
+    resultCountHeritages: string;
+    refresh: string;
+    statusBadgePending: string;
+    statusBadgePublished: string;
+    statusBadgeRejected: string;
+    authorLabel: string;
+    authorAnonymous: string;
+    reasonLabel: string;
+    loading: string;
+    processing: string;
+    switchShow: string;
+    switchHide: string;
+    statsTotal: string;
+    statsTangible: string;
+    statsIntangible: string;
+    statsSubtitle: string;
+    greetings: {
+      morning: string;
+      morningSub: string;
+      afternoon: string;
+      afternoonSub: string;
+      evening: string;
+      eveningSub: string;
+    };
+    alerts: {
+      confirmDeleteTitle: string;
+      confirmDeleteMsg: string;
+      cancel: string;
+      delete: string;
+      success: string;
+      error: string;
+      deleteSuccess: string;
+      deleteError: string;
+      rejectTitle: string;
+      rejectMsg: string;
+      rejectOptionAppropriate: string;
+      rejectOptionEdit: string;
+      rejectError: string;
+      approveError: string;
+      togglePublishError: string;
+    };
+  };
 }
 
 export const translations: Record<Language, Translations> = {
@@ -326,6 +397,77 @@ export const translations: Record<Language, Translations> = {
       tryDifferentSearch: 'Thử tìm kiếm với từ khóa khác',
       tryDifferentCategory: 'Thử chọn danh mục khác',
     },
+    admin: {
+      dashboardTitle: 'Heritage Admin',
+      articlesTitle: 'Quản lý Bài viết',
+      heritagesTitle: 'Quản lý Di sản',
+      totalArticles: 'TỔNG BÀI VIẾT',
+      pendingArticles: 'CHỜ DUYỆT',
+      viewsStats: 'LƯỢT XEM',
+      articlesLink: 'Bài viết',
+      heritagesLink: 'Di sản',
+      itemCount: ' mục',
+      tabPending: 'Chờ duyệt',
+      tabPublished: 'Đã đăng',
+      tabRejected: 'Từ chối',
+      emptyPending: 'Không có bài chờ duyệt',
+      emptyPublished: 'Chưa có bài đã đăng',
+      emptyRejected: 'Không có bài bị từ chối',
+      actionApprove: 'Duyệt',
+      actionReject: 'Từ chối',
+      actionEdit: 'Sửa',
+      actionView: 'Xem',
+      actionDelete: 'Xóa',
+      actionApproveAgain: 'Duyệt lại',
+      actionDeletePermanent: 'Xóa hẳn',
+      addNewArticle: 'Thêm bài viết mới',
+      addNewHeritage: 'Thêm di sản mới',
+      searchPlaceholderArticles: 'Tìm kiếm tiêu đề, tác giả...',
+      searchPlaceholderHeritages: 'Tìm tên di sản, tỉnh thành...',
+      filterAll: 'Tất cả',
+      resultCountArticles: 'Tìm thấy {count} bài viết',
+      resultCountHeritages: '{count} kết quả',
+      refresh: 'Làm mới',
+      statusBadgePending: 'CHỜ DUYỆT',
+      statusBadgePublished: 'ĐÃ ĐĂNG',
+      statusBadgeRejected: 'TỪ CHỐI',
+      authorLabel: 'Tác giả: ',
+      authorAnonymous: 'Ẩn danh',
+      reasonLabel: 'Lý do: ',
+      loading: 'Đang tải...',
+      processing: 'Đang xử lý...',
+      switchShow: 'Hiển thị',
+      switchHide: 'Đang ẩn',
+      statsTotal: 'Tổng cộng',
+      statsTangible: 'Vật thể',
+      statsIntangible: 'Phi vật thể',
+      statsSubtitle: '{total} di sản · {tangible} vật thể · {intangible} phi vật thể',
+      greetings: {
+        morning: 'Chào buổi sáng ☀️',
+        morningSub: 'Chúc bạn một ngày làm việc đầy năng lượng!',
+        afternoon: 'Xin chào Admin! ✨',
+        afternoonSub: 'Chúc bạn một buổi chiều quản lý hiệu quả và ngập tràn niềm vui!',
+        evening: 'Chào buổi tối 🌙',
+        eveningSub: 'Chúc bạn một buổi tối thư giãn!',
+      },
+      alerts: {
+        confirmDeleteTitle: 'Xác nhận xóa',
+        confirmDeleteMsg: 'Bạn có chắc chắn muốn xóa không?',
+        cancel: 'Hủy',
+        delete: 'Xóa',
+        success: 'Thành công',
+        error: 'Lỗi',
+        deleteSuccess: 'Xóa thành công!',
+        deleteError: 'Không thể xóa!',
+        rejectTitle: 'Từ chối bài viết',
+        rejectMsg: 'Bạn muốn từ chối bài viết này vì lý do gì?',
+        rejectOptionAppropriate: 'Từ chối (Không phù hợp)',
+        rejectOptionEdit: 'Từ chối (Cần chỉnh sửa)',
+        rejectError: 'Không thể từ chối bài viết.',
+        approveError: 'Không thể duyệt bài viết.',
+        togglePublishError: 'Không thể thay đổi trạng thái bài viết.',
+      },
+    },
   },
   km: {
     common: {
@@ -482,6 +624,77 @@ export const translations: Record<Language, Translations> = {
       tryDifferentSearch: 'សាកល្បងស្វែងរកដោយពាក្យគន្លឹះផ្សេង',
       tryDifferentCategory: 'សាកល្បងជ្រើសរើសប្រភេទផ្សេង',
     },
+    admin: {
+      dashboardTitle: 'អ្នកគ្រប់គ្រងបេតិកភណ្ឌ',
+      articlesTitle: 'គ្រប់គ្រងអត្ថបទ',
+      heritagesTitle: 'គ្រប់គ្រងបេតិកភណ្ឌ',
+      totalArticles: 'អត្ថបទសរុប',
+      pendingArticles: 'រង់ចាំអនុម័ត',
+      viewsStats: 'ការចូលមើល',
+      articlesLink: 'អត្ថបទ',
+      heritagesLink: 'បេតិកភណ្ឌ',
+      itemCount: ' ធាតុ',
+      tabPending: 'រង់ចាំអនុម័ត',
+      tabPublished: 'បានផ្សព្វផ្សាយ',
+      tabRejected: 'បានបដិសេធ',
+      emptyPending: 'គ្មានអត្ថបទរង់ចាំការអនុម័តទេ',
+      emptyPublished: 'មិនទាន់មានអត្ថបទបានផ្សព្វផ្សាយទេ',
+      emptyRejected: 'គ្មានអត្ថបទដែលត្រូវបានបដិសេធទេ',
+      actionApprove: 'អនុម័ត',
+      actionReject: 'បដិសេធ',
+      actionEdit: 'កែសម្រួល',
+      actionView: 'មើល',
+      actionDelete: 'លុប',
+      actionApproveAgain: 'អនុម័តឡើងវិញ',
+      actionDeletePermanent: 'លុបជាស្ថាពរ',
+      addNewArticle: 'បន្ថែមអត្ថបទថ្មី',
+      addNewHeritage: 'បន្ថែមបេតិកភណ្ឌថ្មី',
+      searchPlaceholderArticles: 'ស្វែងរកចំណងជើង អ្នកនិពន្ធ...',
+      searchPlaceholderHeritages: 'ស្វែងរកឈ្មោះបេតិកភណ្ឌ ខេត្ត...',
+      filterAll: 'ទាំងអស់',
+      resultCountArticles: 'រកឃើញអត្ថបទចំនួន {count}',
+      resultCountHeritages: 'លទ្ធផល {count}',
+      refresh: 'ផ្ទុកឡើងវិញ',
+      statusBadgePending: 'រង់ចាំអនុម័ត',
+      statusBadgePublished: 'បានផ្សាយ',
+      statusBadgeRejected: 'បដិសេធ',
+      authorLabel: 'អ្នកនិពន្ធ: ',
+      authorAnonymous: 'មិនស្គាល់ឈ្មោះ',
+      reasonLabel: 'ហេតុផល: ',
+      loading: 'កំពុងផ្ទុក...',
+      processing: 'កំពុងដំណើរការ...',
+      switchShow: 'បង្ហាញ',
+      switchHide: 'លាក់',
+      statsTotal: 'សរុប',
+      statsTangible: 'រូបវន្ត',
+      statsIntangible: 'អរូបវន្ត',
+      statsSubtitle: '{total} បេតិកភណ្ឌ · {tangible} រូបវន្ត · {intangible} អរូបវន្ត',
+      greetings: {
+        morning: 'អរុណសួស្តី ☀️',
+        morningSub: 'សូមជូនពរឱ្យមានថ្ងៃធ្វើការដែលពោរពេញដោយថាមពល!',
+        afternoon: 'សួស្តីលោក Admin! ✨',
+        afternoonSub: 'សូមជូនពរឱ្យការងារគ្រប់គ្រងរបស់អ្នកទទួលបានជោគជ័យ និងរីករាយ!',
+        evening: 'សាយ័ណ្ហសួស្តី 🌙',
+        eveningSub: 'សូមជូនពរឱ្យមានពេលល្ងាចដ៏រីករាយ និងសម្រាកលំហែកាយ!',
+      },
+      alerts: {
+        confirmDeleteTitle: 'បញ្ជាក់ការលុប',
+        confirmDeleteMsg: 'តើអ្នកប្រាកដជាចង់លុបមែនទេ?',
+        cancel: 'បោះបង់',
+        delete: 'លុប',
+        success: 'ជោគជ័យ',
+        error: 'កំហុស',
+        deleteSuccess: 'លុបបានជោគជ័យ!',
+        deleteError: 'មិនអាចលុបបានទេ!',
+        rejectTitle: 'បដិសេធអត្ថបទ',
+        rejectMsg: 'តើអ្នកចង់បដិសេធអត្ថបទនេះដោយសារមូលហេតុអ្វី?',
+        rejectOptionAppropriate: 'បដិសេធ (មិនសមស្រប)',
+        rejectOptionEdit: 'បដិសេធ (ត្រូវការកែសម្រួល)',
+        rejectError: 'មិនអាចបដិសេធអត្ថបទបានទេ។',
+        approveError: 'មិនអាចអនុម័តអត្ថបទបានទេ។',
+        togglePublishError: 'មិនអាចផ្លាស់ប្តូរស្ថានភាពអត្ថបទបានទេ។',
+      },
+    },
   },
   en: {
     common: {
@@ -637,6 +850,77 @@ export const translations: Record<Language, Translations> = {
       noResultsFound: 'No results found',
       tryDifferentSearch: 'Try searching with different keywords',
       tryDifferentCategory: 'Try selecting a different category',
+    },
+    admin: {
+      dashboardTitle: 'Heritage Admin',
+      articlesTitle: 'Manage Articles',
+      heritagesTitle: 'Manage Heritage',
+      totalArticles: 'TOTAL ARTICLES',
+      pendingArticles: 'PENDING',
+      viewsStats: 'TOTAL VIEWS',
+      articlesLink: 'Articles',
+      heritagesLink: 'Heritage',
+      itemCount: ' items',
+      tabPending: 'Pending',
+      tabPublished: 'Published',
+      tabRejected: 'Rejected',
+      emptyPending: 'No articles pending approval',
+      emptyPublished: 'No published articles yet',
+      emptyRejected: 'No rejected articles',
+      actionApprove: 'Approve',
+      actionReject: 'Reject',
+      actionEdit: 'Edit',
+      actionView: 'View',
+      actionDelete: 'Delete',
+      actionApproveAgain: 'Re-approve',
+      actionDeletePermanent: 'Delete Permanently',
+      addNewArticle: 'Add New Article',
+      addNewHeritage: 'Add New Heritage',
+      searchPlaceholderArticles: 'Search title, author...',
+      searchPlaceholderHeritages: 'Search heritage name, province...',
+      filterAll: 'All',
+      resultCountArticles: 'Found {count} articles',
+      resultCountHeritages: '{count} results',
+      refresh: 'Refresh',
+      statusBadgePending: 'PENDING',
+      statusBadgePublished: 'PUBLISHED',
+      statusBadgeRejected: 'REJECTED',
+      authorLabel: 'Author: ',
+      authorAnonymous: 'Anonymous',
+      reasonLabel: 'Reason: ',
+      loading: 'Loading...',
+      processing: 'Processing...',
+      switchShow: 'Visible',
+      switchHide: 'Hidden',
+      statsTotal: 'Total',
+      statsTangible: 'Tangible',
+      statsIntangible: 'Intangible',
+      statsSubtitle: '{total} heritage · {tangible} tangible · {intangible} intangible',
+      greetings: {
+        morning: 'Good morning ☀️',
+        morningSub: 'Have an energetic working day!',
+        afternoon: 'Hello Admin! ✨',
+        afternoonSub: 'Wishing you a productive and joyful afternoon of management!',
+        evening: 'Good evening 🌙',
+        eveningSub: 'Wish you a relaxing evening!',
+      },
+      alerts: {
+        confirmDeleteTitle: 'Confirm Delete',
+        confirmDeleteMsg: 'Are you sure you want to delete this?',
+        cancel: 'Cancel',
+        delete: 'Delete',
+        success: 'Success',
+        error: 'Error',
+        deleteSuccess: 'Deleted successfully!',
+        deleteError: 'Failed to delete!',
+        rejectTitle: 'Reject Article',
+        rejectMsg: 'What is the reason for rejecting this article?',
+        rejectOptionAppropriate: 'Reject (Inappropriate)',
+        rejectOptionEdit: 'Reject (Needs Editing)',
+        rejectError: 'Failed to reject article.',
+        approveError: 'Failed to approve article.',
+        togglePublishError: 'Failed to change article status.',
+      },
     },
   },
 };

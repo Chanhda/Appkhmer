@@ -24,13 +24,14 @@ async function checkArticles() {
     process.exit(1);
   }
 
-  console.log(`✅ Tìm thấy ${snapshot.size} bài viết:\n`);
+  console.log(`\u2705 T\u00ecm th\u1ea5y ${snapshot.size} b\u00e0i vi\u1ebft:\n`);
   snapshot.forEach((doc, idx) => {
     const data = doc.data();
     console.log(`  ${idx + 1}. [${doc.id}]`);
-    console.log(`     Tiêu đề: ${data.title}`);
-    console.log(`     Danh mục: ${data.category}`);
-    console.log(`     Xuất bản: ${data.published}`);
+    console.log(`     Ti\u00eau \u0111\u1ec1: ${data.title}`);
+    console.log(`     Danh m\u1ee5c: ${data.category}`);
+    console.log(`     Xu\u1ea5t b\u1ea3n: ${data.published}`);
+    console.log(`     coverImage: ${data.coverImage}`);
     console.log(`     createdAt: ${data.createdAt}\n`);
   });
 

@@ -194,7 +194,6 @@ const getStyles = (C: typeof Colors.dark, scheme: string) => StyleSheet.create({
     borderWidth: 1,
     borderColor: scheme === 'light' ? 'rgba(182, 139, 30, 0.16)' : 'rgba(212, 175, 55, 0.15)',
     borderRadius: 16,
-    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#B68B1E',

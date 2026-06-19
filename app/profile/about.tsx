@@ -240,12 +240,16 @@ const getStyles = (C: typeof Colors.dark, scheme: string) => StyleSheet.create({
     gap: Spacing.md,
   },
   descriptionCard: {
-    backgroundColor: scheme === 'light' ? 'rgba(243, 237, 226, 0.6)' : 'rgba(30, 30, 30, 0.45)',
+    backgroundColor: scheme === 'light' ? '#FFFFFF' : C.backgroundSecondary,
     borderWidth: 0.5,
-    borderColor: `${C.primary}15`,
+    borderColor: scheme === 'light' ? 'rgba(182, 139, 30, 0.15)' : 'rgba(242, 202, 80, 0.15)',
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
-    ...Shadows.medium,
+    ...Platform.select({
+      ios: Shadows.medium,
+      web: Shadows.medium,
+      default: {},
+    }),
   },
   descriptionText: {
     ...Typography.bodyMedium,
@@ -270,7 +274,6 @@ const getStyles = (C: typeof Colors.dark, scheme: string) => StyleSheet.create({
     borderWidth: 1,
     borderColor: scheme === 'light' ? 'rgba(182, 139, 30, 0.16)' : 'rgba(212, 175, 55, 0.15)',
     borderRadius: 16,
-    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#B68B1E',

@@ -18,7 +18,14 @@ function loadServiceAccount(): ServiceAccount | undefined {
     return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON) as ServiceAccount;
   }
 
-  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+  let serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+
+  if (!serviceAccountPath) {
+    const defaultPath = path.resolve(__dirname, '../khmerapp-9895c-firebase-adminsdk-fbsvc-c52a5dc7fe.json');
+    if (fs.existsSync(defaultPath)) {
+      serviceAccountPath = defaultPath;
+    }
+  }
 
   if (serviceAccountPath) {
     const resolvedPath = path.resolve(serviceAccountPath);
@@ -53,6 +60,31 @@ function sanitizeValue(value: unknown): unknown {
   }
 
   return value;
+}
+
+async function deleteCollection(collectionName: string) {
+  const db = getFirestore();
+  const collectionRef = db.collection(collectionName);
+  const snapshot = await collectionRef.get();
+  
+  if (snapshot.empty) {
+    console.log(`Collection "${collectionName}" is already empty.`);
+    return;
+  }
+
+  console.log(`Deleting ${snapshot.size} documents from "${collectionName}"...`);
+  const docs = snapshot.docs;
+  const batchSize = 400;
+
+  for (let index = 0; index < docs.length; index += batchSize) {
+    const chunk = docs.slice(index, index + batchSize);
+    const batch = db.batch();
+    for (const doc of chunk) {
+      batch.delete(doc.ref);
+    }
+    await batch.commit();
+  }
+  console.log(`✅ Collection "${collectionName}" cleared.`);
 }
 
 function seedCollections() {
@@ -96,6 +128,15 @@ async function main() {
     }
   }
 
+  // Clear existing collections first
+  console.log('🧹 Clearing existing collections in Firestore...');
+  for (const [collectionName] of seedCollections()) {
+    await deleteCollection(collectionName);
+  }
+  console.log('🧹 All collections cleared.\n');
+
+  // Seed collections
+  console.log('🌱 Seeding new data into Firestore...');
   for (const [collectionName, documents] of seedCollections()) {
     await writeCollection(collectionName, documents as SeedDocument[]);
   }

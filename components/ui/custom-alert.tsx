@@ -23,6 +23,11 @@ interface CustomAlertProps {
   onConfirm?: () => void;
   confirmText?: string;
   cancelText?: string;
+  options?: {
+    text: string;
+    onPress: () => void;
+    style?: 'cancel' | 'destructive' | 'default';
+  }[];
 }
 
 export function CustomAlert({
@@ -34,6 +39,7 @@ export function CustomAlert({
   onConfirm,
   confirmText = 'OK',
   cancelText = 'Hủy',
+  options,
 }: CustomAlertProps) {
   const { resolvedColorScheme } = useColorSchemePreference();
   const C = Colors[resolvedColorScheme];
@@ -113,8 +119,47 @@ export function CustomAlert({
           </Text>
 
           {/* Action buttons */}
-          <View style={styles.buttonRow}>
-            {onConfirm ? (
+          <View style={options ? styles.buttonColumn : styles.buttonRow}>
+            {options ? (
+              options.map((option, idx) => {
+                const isCancel = option.style === 'cancel';
+                const isDestructive = option.style === 'destructive';
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[
+                      isCancel ? styles.secondaryButton : styles.primaryButton,
+                      { flex: 0, width: '100%' },
+                      !isCancel && {
+                        backgroundColor: isDestructive
+                          ? (isDark ? '#FFB4AB' : '#BA1A1A')
+                          : config.iconColor,
+                      },
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      onClose();
+                      option.onPress();
+                    }}
+                  >
+                    <Text
+                      style={[
+                        isCancel ? styles.secondaryButtonText : styles.primaryButtonText,
+                        {
+                          color: isCancel
+                            ? (isDark ? '#E5E2E1' : '#1C1A17')
+                            : (isDestructive
+                                ? (isDark ? '#131313' : '#FFFFFF')
+                                : config.buttonTextCol),
+                        },
+                      ]}
+                    >
+                      {option.text}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })
+            ) : onConfirm ? (
               <>
                 <TouchableOpacity
                   style={[
@@ -219,6 +264,12 @@ const styles = StyleSheet.create({
     gap: 22,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  buttonColumn: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   button: {
     width: '100%',

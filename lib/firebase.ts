@@ -1,6 +1,6 @@
 import { getApps, initializeApp } from 'firebase/app';
 import { getAuth, inMemoryPersistence, initializeAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { Platform } from 'react-native';
 
@@ -76,8 +76,21 @@ export function getFirebaseAuth() {
   return authInstance;
 }
 
+let dbInstance: any = null;
+
 export function getFirestoreDb() {
-  return getFirestore(getFirebaseApp());
+  if (dbInstance) {
+    return dbInstance;
+  }
+  const app = getFirebaseApp();
+  try {
+    dbInstance = initializeFirestore(app, {
+      ignoreUndefinedProperties: true,
+    });
+  } catch (e) {
+    dbInstance = getFirestore(app);
+  }
+  return dbInstance;
 }
 
 export function getStorageBucket() {

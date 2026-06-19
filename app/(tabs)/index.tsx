@@ -1,5 +1,5 @@
-import { Link, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { Link, useRouter, useFocusEffect } from 'expo-router';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Dimensions,
   Image,
@@ -30,6 +30,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { type ArticleDocument, fetchArticles } from '@/lib/article-repository';
 import { useAuthSession } from '@/lib/auth-session';
 import { type HeritageDocument, fetchHeritages } from '@/lib/heritage-repository';
+import { getHeritageImageSource, getArticleImageSource } from '@/constants/image-resolver';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HERO_HEIGHT = Math.min(SCREEN_HEIGHT * 0.52, 460);
@@ -66,43 +67,45 @@ export default function HomeScreen() {
     scrollY.value = e.contentOffset.y;
   });
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        
-        let articleData: ArticleDocument[] = [];
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      (async () => {
         try {
-          articleData = await fetchArticles();
-        } catch (e) {
-          console.error('Error fetching articles:', e);
-        }
-
-        let heritageData: HeritageDocument[] = [];
-        try {
-          heritageData = await fetchHeritages();
-        } catch (e) {
-          console.error('Error fetching heritages:', e);
-        }
-
-        if (mounted) {
-          setArticles(articleData.slice(0, 6));
-          setHeritages(heritageData.slice(0, 6));
+          setLoading(true);
           
-          const uniqueProvinces = Array.from(new Set(heritageData.map(h => h.province).filter(Boolean)));
-          setStats({
-            heritage: heritageData.length || 12,
-            articles: articleData.length || 19,
-            provinces: uniqueProvinces.length || 6,
-          });
+          let articleData: ArticleDocument[] = [];
+          try {
+            articleData = await fetchArticles();
+          } catch (e) {
+            console.error('Error fetching articles:', e);
+          }
+
+          let heritageData: HeritageDocument[] = [];
+          try {
+            heritageData = await fetchHeritages();
+          } catch (e) {
+            console.error('Error fetching heritages:', e);
+          }
+
+          if (mounted) {
+            setArticles(articleData.slice(0, 6));
+            setHeritages(heritageData.slice(0, 6));
+            
+            const uniqueProvinces = Array.from(new Set(heritageData.map(h => h.province).filter(Boolean)));
+            setStats({
+              heritage: heritageData.length || 12,
+              articles: articleData.length || 19,
+              provinces: uniqueProvinces.length || 6,
+            });
+          }
+        } finally {
+          if (mounted) setLoading(false);
         }
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
+      })();
+      return () => { mounted = false; };
+    }, [])
+  );
 
   const filteredArticles = articles.filter(a =>
     !search || a.title.toLowerCase().includes(search.toLowerCase())
@@ -232,34 +235,46 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.hScroll}
           >
-            {heritages.slice(0, 5).map((h) => (
-              <View key={h.id} style={styles.heritageCard}>
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => router.push(`/heritage/${h.id}`)}
-                  style={styles.heritageCardInner}
-                >
-                  <Image
-                    source={{ uri: (h.coverImage || 'https://images.unsplash.com/photo-1549692520-acc6669e2f0c?auto=format&fit=crop&w=400&q=75') }}
-                    style={styles.heritageCardImage}
-                    resizeMode="cover"
-                  />
-                  <LinearGradient
-                    colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)']}
-                    style={styles.heritageCardContent}
+            {heritages.slice(0, 5).map((h) => {
+              const CardContentWrapper = LinearGradient;
+              const wrapperProps = { colors: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)'], style: styles.heritageCardContent };
+
+              return (
+                <View key={h.id} style={styles.heritageCard}>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => router.push(`/heritage/${h.id}`)}
+                    style={styles.heritageCardInner}
                   >
-                    <View style={styles.provinceTag}>
-                      <ThemedText style={styles.provinceTagText}>{h.province ?? 'Sóc Trăng'}</ThemedText>
-                    </View>
-                    <ThemedText style={styles.heritageCardName} numberOfLines={2}>{h.title}</ThemedText>
-                    <View style={styles.heritageCardMeta}>
-                      <IconSymbol name="location.fill" size={12} color="rgba(255,255,255,0.75)" />
-                      <ThemedText style={styles.heritageCardDist}>{h.province ?? 'Nam Bộ'}</ThemedText>
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            ))}
+                    <Image
+                      source={getHeritageImageSource(h.id, h.coverImage, h.type)}
+                      style={styles.heritageCardImage}
+                      resizeMode="cover"
+                    />
+
+                    {/* @ts-ignore */}
+                    <CardContentWrapper {...wrapperProps}>
+                      <View style={[styles.provinceTag]}>
+                        <ThemedText style={styles.provinceTagText}>{h.province ?? 'Sóc Trăng'}</ThemedText>
+                      </View>
+                      <ThemedText 
+                        style={[styles.heritageCardName]} 
+                        numberOfLines={2}
+                      >
+                        {h.title}
+                      </ThemedText>
+                      <View style={styles.heritageCardMeta}>
+                        <IconSymbol name="location.fill" size={12} color="rgba(255,255,255,0.75)" />
+                        <ThemedText style={[styles.heritageCardDist]}>
+                          {h.province ?? 'Nam Bộ'}
+                        </ThemedText>
+                      </View>
+                    </CardContentWrapper>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+
 
             {heritages.length === 0 && [0, 1, 2].map(i => (
               <View key={i} style={[styles.heritageCard, styles.skeletonCard]} />
@@ -282,7 +297,7 @@ export default function HomeScreen() {
               >
                 {/* Full-width Image */}
                 <Image
-                  source={{ uri: article.coverImage || 'https://images.unsplash.com/photo-1562625964-ffe9b2f617bc?auto=format&fit=crop&w=600&q=80' }}
+                  source={getArticleImageSource(article.id, article.coverImage, article.category)}
                   style={styles.articleCardImageFull}
                   resizeMode="cover"
                 />
@@ -404,18 +419,28 @@ const getStyles = (C: typeof Colors.dark, scheme: string) => StyleSheet.create({
     fontWeight: '700',
     lineHeight: 30,
     marginBottom: 4,
-    textShadowColor: 'rgba(0,0,0,0.9)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
+    ...Platform.select({
+      web: { textShadow: '0 1px 6px rgba(0,0,0,0.9)' },
+      default: {
+        textShadowColor: 'rgba(0,0,0,0.9)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 6,
+      },
+    }),
   },
   heroSub: {
     color: 'rgba(255,255,255,0.88)',
     fontSize: 12,
     lineHeight: 17,
     maxWidth: '85%',
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    ...Platform.select({
+      web: { textShadow: '0 1px 4px rgba(0,0,0,0.8)' },
+      default: {
+        textShadowColor: 'rgba(0,0,0,0.8)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4,
+      },
+    }),
   },
 
   // ── Search ────────────────────────────────────────
@@ -517,7 +542,7 @@ const getStyles = (C: typeof Colors.dark, scheme: string) => StyleSheet.create({
     width: 220,
     height: 290,
     borderRadius: BorderRadius.xxl,
-    overflow: 'hidden',
+    backgroundColor: scheme === 'light' ? '#FFFFFF' : C.backgroundSecondary,
     borderWidth: 0.5,
     borderColor: `${C.primary}30`,
     ...Shadows.large,
@@ -525,6 +550,8 @@ const getStyles = (C: typeof Colors.dark, scheme: string) => StyleSheet.create({
   heritageCardInner: {
     width: 220,
     height: 290,
+    borderRadius: BorderRadius.xxl,
+    overflow: 'hidden',
   },
   skeletonCard: {
     backgroundColor: C.surfaceHigh,
@@ -536,6 +563,7 @@ const getStyles = (C: typeof Colors.dark, scheme: string) => StyleSheet.create({
     width: 220,
     height: 290,
     backgroundColor: '#8B7355',
+    borderRadius: BorderRadius.xxl,
   },
   heritageCardContent: {
     position: 'absolute',

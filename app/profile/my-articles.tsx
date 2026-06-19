@@ -20,6 +20,7 @@ import { BorderRadius, Colors, Spacing, Typography, Shadows, FontFamily } from '
 import { useColorSchemePreference } from '@/contexts/color-scheme-context';
 import { fetchArticlesByAuthor, type ArticleDocument, type ArticleStatus } from '@/lib/article-repository';
 import { useAuthSession } from '@/lib/auth-session';
+import { getArticleImageSource } from '@/constants/image-resolver';
 
 export default function MyArticlesScreen() {
   const router = useRouter();
@@ -222,13 +223,7 @@ export default function MyArticlesScreen() {
                   </View>
 
                   <View style={styles.cardBody}>
-                    {item.coverImage ? (
-                      <Image source={{ uri: item.coverImage }} style={styles.thumbnail} />
-                    ) : (
-                      <View style={[styles.thumbnailPlaceholder, { backgroundColor: C.backgroundSecondary, borderColor: C.border }]}>
-                        <IconSymbol name="newspaper" size={20} color={C.textTertiary} />
-                      </View>
-                    )}
+                    <Image source={getArticleImageSource(item.id, item.coverImage, item.category)} style={styles.thumbnail} />
                     <View style={styles.textWrap}>
                       <Text style={[styles.cardTitle, { color: C.text }]} numberOfLines={2}>
                         {item.title}

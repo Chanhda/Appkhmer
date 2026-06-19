@@ -23,6 +23,7 @@ import { useLanguage } from '@/contexts/language-context';
 import { type ArticleDocument, fetchArticleById, isArticleLikedLocally, toggleArticleLike, incrementArticleViews, fetchArticles } from '@/lib/article-repository';
 import { useAuthSession } from '@/lib/auth-session';
 import { type CommentDocument, fetchCommentsForArticle, addCommentToArticle } from '@/lib/comment-repository';
+import { getArticleImageSource } from '@/constants/image-resolver';
 import { getTimeAgo } from '@/lib/time-utils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -48,6 +49,7 @@ export default function ArticleDetailScreen() {
   const [comments, setComments] = useState<CommentDocument[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [relatedArticles, setRelatedArticles] = useState<ArticleDocument[]>([]);
+  const [activeGalleryImg, setActiveGalleryImg] = useState(0);
 
   const scrollCommentsToView = () => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -231,6 +233,20 @@ export default function ArticleDetailScreen() {
     );
   }
 
+  // Fallback gallery images
+  const FALLBACK_ARTICLE_GALLERY = [
+    'https://images.unsplash.com/photo-1508009603885-50cf7c579365?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1598908313407-4fbd48db2c96?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=600&q=80',
+    'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=600&q=80'
+  ];
+
+  const galleryImages = Array.isArray(article.gallery) && article.gallery.length > 0
+    ? article.gallery
+    : (article.coverImage
+        ? [article.coverImage, ...FALLBACK_ARTICLE_GALLERY.slice(0, 3)]
+        : FALLBACK_ARTICLE_GALLERY);
+
   return (
     <View style={[styles.screen, { backgroundColor: C.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -272,13 +288,7 @@ export default function ArticleDetailScreen() {
       >
         {/* Cover Hero Block */}
         <Animated.View entering={FadeIn.duration(400)} style={styles.heroWrap}>
-          {article.coverImage ? (
-            <Image source={{ uri: article.coverImage }} style={styles.heroImage} resizeMode="cover" />
-          ) : (
-            <View style={[styles.heroPlaceholder, { backgroundColor: C.backgroundTertiary }]}>
-              <IconSymbol name="photo.fill" size={48} color={C.textTertiary} />
-            </View>
-          )}
+          <Image source={getArticleImageSource(article.id, article.coverImage, article.category)} style={styles.heroImage} resizeMode="cover" />
         </Animated.View>
 
         {/* Content Overlap Card */}
@@ -358,6 +368,57 @@ export default function ArticleDetailScreen() {
               ))}
             </View>
           </View>
+
+          {/* Gallery / Thư viện ảnh bài viết */}
+          {galleryImages.length > 0 && (
+            <View style={styles.sectionContainer}>
+              <View style={[styles.sectionHeaderRow, { marginBottom: 14 }]}>
+                <View style={[styles.sectionAccentBar, { backgroundColor: C.secondary }]} />
+                <Text style={[styles.sectionTitle, { color: C.text }]}>
+                  {language === 'vi' ? 'Thư viện ảnh' : language === 'km' ? 'វិចិត្រសាល' : 'Gallery'}
+                </Text>
+              </View>
+
+              {/* Main gallery image */}
+              <Pressable
+                style={[styles.galleryMain, { backgroundColor: C.surfaceHigh }]}
+                onPress={() => setActiveGalleryImg((activeGalleryImg + 1) % galleryImages.length)}
+              >
+                <Image
+                  source={{ uri: galleryImages[activeGalleryImg] }}
+                  style={StyleSheet.absoluteFill}
+                  resizeMode="cover"
+                />
+                <View style={styles.galleryImgCounter}>
+                  <Text style={styles.galleryImgCounterText}>
+                    {activeGalleryImg + 1} / {galleryImages.length}
+                  </Text>
+                </View>
+                <View style={styles.galleryTapHint}>
+                  <IconSymbol name="hand.tap.fill" size={14} color="rgba(255,255,255,0.8)" />
+                </View>
+              </Pressable>
+
+              {/* Thumbnail row */}
+              <View style={styles.galleryThumbRow}>
+                {galleryImages.map((img, i) => (
+                  <Pressable
+                    key={i}
+                    style={[
+                      styles.galleryThumb,
+                      { backgroundColor: C.surfaceHigh, borderColor: i === activeGalleryImg ? C.primary : 'transparent', borderWidth: i === activeGalleryImg ? 2 : 0 },
+                    ]}
+                    onPress={() => setActiveGalleryImg(i)}
+                  >
+                    <Image source={{ uri: img }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                    {i === activeGalleryImg && (
+                      <View style={styles.activeThumbOverlay} />
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* Comments Section */}
           <View style={styles.commentsSection}>
@@ -474,52 +535,108 @@ export default function ArticleDetailScreen() {
       <View style={[
         styles.stickyBottomBar,
         {
-          backgroundColor: isDark ? 'rgba(19, 19, 19, 0.96)' : 'rgba(251, 248, 242, 0.98)',
-          borderTopColor: `${C.border}40`,
-          paddingBottom: Math.max(insets.bottom, 16),
+          backgroundColor: isDark ? '#1C1B1B' : '#FFFFFF',
+          borderTopColor: `${C.border}30`,
+          paddingBottom: Math.max(insets.bottom, 12),
         },
       ]}>
         <Pressable
           style={({ pressed }) => [
-            styles.interactionBtn,
-            pressed && { transform: [{ scale: 0.95 }], opacity: 0.8 },
+            {
+              flex: 1,
+              flexShrink: 1,
+              backgroundColor: pressed ? (isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)') : 'transparent',
+              borderRadius: 8,
+            },
           ]}
           onPress={handleToggleLike}
         >
-          <IconSymbol name={isLiked ? 'heart.fill' : 'heart'} size={20} color={isLiked ? C.secondary : C.primary} />
-          <Text style={[styles.interactionBtnText, { color: isLiked ? C.secondary : C.primary }]}>
-            {isLiked ? (language === 'vi' ? 'Đã thích' : language === 'km' ? 'បានចូលចិត្ត' : 'Liked') : (language === 'vi' ? 'Thích' : language === 'km' ? 'ចូលចិត្ត' : 'Like')}
-          </Text>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            height: 40,
+            flex: 1,
+          }}>
+            <IconSymbol
+              name={isLiked ? 'heart.fill' : 'heart'}
+              size={18}
+              color={isLiked ? C.secondary : C.textSecondary}
+            />
+            <Text
+              numberOfLines={1}
+              style={[styles.interactionBtnText, { color: isLiked ? C.secondary : C.textSecondary }]}
+            >
+              {isLiked ? (language === 'vi' ? 'Đã thích' : language === 'km' ? 'បានចូលចិត្ត' : 'Liked') : (language === 'vi' ? 'Thích' : language === 'km' ? 'ចូលចិត្ត' : 'Like')}
+            </Text>
+          </View>
         </Pressable>
-
-        <View style={[styles.verticalDivider, { backgroundColor: `${C.border}25` }]} />
 
         <Pressable
           style={({ pressed }) => [
-            styles.interactionBtn,
-            pressed && { transform: [{ scale: 0.95 }], opacity: 0.8 },
+            {
+              flex: 1,
+              flexShrink: 1,
+              backgroundColor: pressed ? (isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)') : 'transparent',
+              borderRadius: 8,
+            },
           ]}
           onPress={scrollCommentsToView}
         >
-          <IconSymbol name="bubble.left" size={20} color={C.primary} />
-          <Text style={[styles.interactionBtnText, { color: C.primary }]}>
-            {language === 'vi' ? 'Bình luận' : language === 'km' ? 'មតិ' : 'Comment'}
-          </Text>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            height: 40,
+            flex: 1,
+          }}>
+            <IconSymbol
+              name="bubble.left"
+              size={18}
+              color={C.textSecondary}
+            />
+            <Text
+              numberOfLines={1}
+              style={[styles.interactionBtnText, { color: C.textSecondary }]}
+            >
+              {language === 'vi' ? 'Bình luận' : language === 'km' ? 'មតិ' : 'Comment'}
+            </Text>
+          </View>
         </Pressable>
-
-        <View style={[styles.verticalDivider, { backgroundColor: `${C.border}25` }]} />
 
         <Pressable
           style={({ pressed }) => [
-            styles.interactionBtn,
-            pressed && { transform: [{ scale: 0.95 }], opacity: 0.8 },
+            {
+              flex: 1,
+              flexShrink: 1,
+              backgroundColor: pressed ? (isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)') : 'transparent',
+              borderRadius: 8,
+            },
           ]}
           onPress={handleShare}
         >
-          <IconSymbol name="square.and.arrow.up" size={20} color={C.primary} />
-          <Text style={[styles.interactionBtnText, { color: C.primary }]}>
-            {language === 'vi' ? 'Chia sẻ' : language === 'km' ? 'ចែករំលែក' : 'Share'}
-          </Text>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            height: 40,
+            flex: 1,
+          }}>
+            <IconSymbol
+              name="square.and.arrow.up"
+              size={18}
+              color={C.textSecondary}
+            />
+            <Text
+              numberOfLines={1}
+              style={[styles.interactionBtnText, { color: C.textSecondary }]}
+            >
+              {language === 'vi' ? 'Chia sẻ' : language === 'km' ? 'ចែករំលែក' : 'Share'}
+            </Text>
+          </View>
         </Pressable>
       </View>
     </View>
@@ -743,27 +860,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingTop: 12,
+    paddingHorizontal: 8,
+    paddingTop: 8,
     borderTopWidth: 0.5,
-    ...Shadows.medium,
   },
   interactionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    flexWrap: 'nowrap',
+    gap: 4,
     height: 40,
+    borderRadius: 8,
   },
   interactionBtnText: {
     fontFamily: FontFamily.interSemiBold,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  verticalDivider: {
-    width: 1,
-    height: 24,
+    fontSize: 12,
+    fontWeight: '600',
   },
 
   // ── Comments Styles ───────────────────────────────
@@ -843,5 +957,70 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.inter,
     fontSize: 13,
     lineHeight: 18,
+  },
+  sectionContainer: {
+    marginTop: Spacing.md,
+    gap: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sectionAccentBar: {
+    width: 3.5,
+    height: 20,
+    borderRadius: BorderRadius.full,
+  },
+  sectionTitle: {
+    fontFamily: FontFamily.playfairBold,
+    fontSize: 20,
+    fontWeight: '700',
+    flex: 1,
+  },
+  galleryMain: {
+    width: '100%',
+    height: 210,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  galleryImgCounter: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  galleryImgCounterText: {
+    fontFamily: FontFamily.interMedium,
+    fontSize: 12,
+    color: '#fff',
+  },
+  galleryTapHint: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: BorderRadius.full,
+    padding: 6,
+  },
+  galleryThumbRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: 4,
+  },
+  galleryThumb: {
+    flex: 1,
+    height: 72,
+    borderRadius: BorderRadius.md,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  activeThumbOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(242,202,80,0.25)',
   },
 });

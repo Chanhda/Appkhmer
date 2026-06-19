@@ -21,6 +21,7 @@ export type ArticleStatus = 'pending' | 'published' | 'rejected';
 
 export type ArticleDocument = ArticleItem & {
   coverImage?: string;
+  gallery?: string[];
   createdAt?: string;
   views?: number;
   likes?: number;
@@ -47,6 +48,7 @@ function mapArticleDoc(id: string, data: Record<string, unknown>): ArticleDocume
     author: String(data.author ?? ''),
     date: String(data.date ?? ''),
     coverImage: typeof data.coverImage === 'string' ? data.coverImage : undefined,
+    gallery: Array.isArray(data.gallery) ? data.gallery.map((item) => String(item)) : undefined,
     createdAt: typeof data.createdAt === 'string' ? data.createdAt : undefined,
     views: typeof data.views === 'number' ? data.views : 0,
     likes: typeof data.likes === 'number' ? data.likes : 0,

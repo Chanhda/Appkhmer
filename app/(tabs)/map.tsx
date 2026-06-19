@@ -21,7 +21,7 @@ import { type HeritageDocument, fetchHeritages } from '@/lib/heritage-repository
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MapScreen() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const C = Colors[colorScheme ?? 'dark'];
@@ -33,9 +33,10 @@ export default function MapScreen() {
 
   const filters = [
     { id: 'all', label: t.home.categories.all, icon: 'square.grid.2x2' as const },
-    { id: 'temple', label: t.home.categories.temple, icon: 'building.2' as const },
-    { id: 'festival', label: t.home.categories.festival, icon: 'sparkles' as const },
-    { id: 'art', label: t.home.categories.art, icon: 'paintpalette' as const },
+    { id: 'Sóc Trăng', label: 'Sóc Trăng', icon: 'mappin.circle.fill' as const },
+    { id: 'Trà Vinh', label: 'Trà Vinh', icon: 'mappin.circle.fill' as const },
+    { id: 'Bạc Liêu', label: 'Bạc Liêu', icon: 'mappin.circle.fill' as const },
+    { id: 'TP. Hồ Chí Minh', label: 'TP. HCM', icon: 'mappin.circle.fill' as const },
   ];
 
   useEffect(() => {
@@ -63,8 +64,11 @@ export default function MapScreen() {
   }, []);
 
   const filteredHeritages = heritages.filter((h) => {
+    // Only display tangible heritages on the map/journey screen
+    if (h.type !== 'tangible') return false;
+
     if (selectedFilter === 'all') return true;
-    return h.category?.toLowerCase().includes(selectedFilter);
+    return h.province === selectedFilter;
   });
 
   return (
@@ -105,7 +109,9 @@ export default function MapScreen() {
             <View style={[styles.statIconContainer, { backgroundColor: `${C.primary}12` }]}>
               <IconSymbol name="mappin.circle.fill" size={20} color={C.primary} />
             </View>
-            <ThemedText style={styles.statValue}>{heritages.length}</ThemedText>
+            <ThemedText style={styles.statValue}>
+              {heritages.filter(h => h.type === 'tangible').length}
+            </ThemedText>
             <ThemedText style={styles.statLabel}>{t.map.stats.markers}</ThemedText>
           </View>
 
@@ -113,7 +119,9 @@ export default function MapScreen() {
             <View style={[styles.statIconContainer, { backgroundColor: `${C.accent}12` }]}>
               <IconSymbol name="location.fill" size={20} color={C.accent} />
             </View>
-            <ThemedText style={styles.statValue}>12</ThemedText>
+            <ThemedText style={styles.statValue}>
+              {new Set(heritages.filter(h => h.type === 'tangible').map(h => h.province).filter(Boolean)).size}
+            </ThemedText>
             <ThemedText style={styles.statLabel}>{t.map.stats.areas}</ThemedText>
           </View>
 
@@ -121,8 +129,12 @@ export default function MapScreen() {
             <View style={[styles.statIconContainer, { backgroundColor: `${C.secondary}12` }]}>
               <IconSymbol name="arrow.up.arrow.down" size={20} color={C.secondary} />
             </View>
-            <ThemedText style={styles.statValue}>100</ThemedText>
-            <ThemedText style={styles.statLabel}>{t.map.stats.distance}</ThemedText>
+            <ThemedText style={styles.statValue}>
+              {heritages.filter(h => h.type === 'tangible').length}
+            </ThemedText>
+            <ThemedText style={styles.statLabel}>
+              {language === 'vi' ? 'Điểm đến' : language === 'km' ? 'គោលដៅ' : 'Destinations'}
+            </ThemedText>
           </View>
         </Animated.View>
 

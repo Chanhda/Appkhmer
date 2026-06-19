@@ -1,5 +1,6 @@
-import { useRouter, type Href } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRouter, type Href, useFocusEffect } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
+import { CustomAlert } from '@/components/ui/custom-alert';
 import {
   ActivityIndicator,
   Alert,
@@ -19,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { BorderRadius, Colors, Shadows, Spacing, Typography } from '@/constants/theme';
+import { BorderRadius, Colors, Shadows, Spacing, Typography, FontFamily } from '@/constants/theme';
 import { useLanguage } from '@/contexts/language-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRequireAdmin } from '@/lib/auth-session';
@@ -28,17 +29,72 @@ import {
   fetchHeritages,
   type HeritageDocument,
 } from '@/lib/heritage-repository';
+import { getHeritageImageSource } from '@/constants/image-resolver';
 
 const FILTER_TYPES = ['Tất cả', 'tangible', 'intangible'] as const;
 const FILTER_CATEGORIES = ['Tất cả', 'Kiến trúc tôn giáo', 'Lễ hội truyền thống', 'Nghệ thuật biểu diễn', 'Ẩm thực', 'Khác'];
+
+const categoryLabelMap: Record<string, Record<string, string>> = {
+  vi: {
+    'Tất cả': 'Tất cả',
+    'Kiến trúc tôn giáo': 'Kiến trúc tôn giáo',
+    'Lễ hội truyền thống': 'Lễ hội truyền thống',
+    'Nghệ thuật biểu diễn': 'Nghệ thuật biểu diễn',
+    'Ẩm thực': 'Ẩm thực',
+    'Khác': 'Khác'
+  },
+  km: {
+    'Tất cả': 'ទាំងអស់',
+    'Kiến trúc tôn giáo': 'ស្ថាបត្យកម្មសាសនា',
+    'Lễ hội truyền thống': 'ពិធីបុណ្យប្រពៃណី',
+    'Nghệ thuật biểu diễn': 'សិល្បៈសម្តែង',
+    'Ẩm thực': 'ម្ហូបអាហារ',
+    'Khác': 'ផ្សេងៗ'
+  },
+  en: {
+    'Tất cả': 'All',
+    'Kiến trúc tôn giáo': 'Religious Architecture',
+    'Lễ hội truyền thống': 'Traditional Festival',
+    'Nghệ thuật biểu diễn': 'Performing Art',
+    'Ẩm thực': 'Cuisine',
+    'Khác': 'Other'
+  }
+};
+
+const hexToRgba = (hex: string, alpha: number) => {
+  const cleanHex = hex.replace('#', '');
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring( cleanHex.length === 3 ? 2 : 4, cleanHex.length === 3 ? 3 : 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
 
 export default function AdminHeritagesScreen() {
   const { loading: authLoading } = useRequireAdmin();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { t } = useLanguage();
+  const isDark = colorScheme === 'dark';
+  const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
+
+  const btnStyles = {
+    view: {
+      bg: isDark ? 'rgba(127, 222, 221, 0.15)' : '#E0F2F1',
+      border: isDark ? 'rgba(127, 222, 221, 0.3)' : '#B2DFDB',
+      text: isDark ? '#7FDEDD' : '#007073',
+    },
+    edit: {
+      bg: isDark ? 'rgba(242, 202, 80, 0.15)' : '#FEF3C7',
+      border: isDark ? 'rgba(242, 202, 80, 0.3)' : '#FDE68A',
+      text: isDark ? '#F2CA50' : '#B68B1E',
+    },
+    delete: {
+      bg: isDark ? 'rgba(255, 180, 171, 0.15)' : '#FEE2E2',
+      border: isDark ? 'rgba(255, 180, 171, 0.3)' : '#FCA5A5',
+      text: isDark ? '#FFB4AB' : '#BA1A1A',
+    },
+  };
 
   const [heritages, setHeritages] = useState<HeritageDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,9 +102,48 @@ export default function AdminHeritagesScreen() {
   const [selectedType, setSelectedType] = useState<'Tất cả' | 'tangible' | 'intangible'>('Tất cả');
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
 
-  useEffect(() => {
-    loadHeritages();
-  }, []);
+  const [alertConfig, setAlertConfig] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'info' | 'warning';
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void;
+    onClose?: () => void;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showAlert = (
+    title: string,
+    message: string,
+    type: 'success' | 'error' | 'info' | 'warning' = 'info',
+    onConfirm?: () => void,
+    confirmText?: string,
+    cancelText?: string,
+    onClose?: () => void
+  ) => {
+    setAlertConfig({
+      visible: true,
+      type,
+      title,
+      message,
+      onConfirm,
+      confirmText,
+      cancelText,
+      onClose,
+    });
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadHeritages();
+    }, [])
+  );
 
   const loadHeritages = async () => {
     try {
@@ -73,22 +168,29 @@ export default function AdminHeritagesScreen() {
         await deleteHeritage(id);
         setHeritages(prev => prev.filter(h => h.id !== id));
         if (Platform.OS === 'web') {
-          alert('Đã xóa di sản!');
+          alert(t.admin.alerts.deleteSuccess);
         } else {
-          Alert.alert('Thành công', 'Đã xóa di sản!');
+          showAlert(t.admin.alerts.success, t.admin.alerts.deleteSuccess, 'success');
         }
       } catch {
-        Alert.alert('Lỗi', 'Không thể xóa di sản!');
+        showAlert(t.admin.alerts.error, t.admin.alerts.deleteError, 'error');
       }
     };
 
     if (Platform.OS === 'web') {
-      if (confirm(`Xóa di sản "${title}"?`)) doDelete();
+      const confirmMsg = language === 'vi' ? `Xóa di sản "${title}"?`
+        : language === 'km' ? `លុបបេតិកភណ្ឌ "${title}"?`
+        : `Delete heritage "${title}"?`;
+      if (confirm(confirmMsg)) doDelete();
     } else {
-      Alert.alert('Xác nhận xóa', `Bạn có chắc muốn xóa di sản "${title}"?`, [
-        { text: 'Hủy', style: 'cancel' },
-        { text: 'Xóa', style: 'destructive', onPress: doDelete },
-      ]);
+      showAlert(
+        t.admin.alerts.confirmDeleteTitle,
+        `${t.admin.alerts.confirmDeleteMsg} "${title}"?`,
+        'warning',
+        doDelete,
+        t.admin.alerts.delete,
+        t.admin.alerts.cancel
+      );
     }
   };
 
@@ -113,7 +215,7 @@ export default function AdminHeritagesScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <ThemedText style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Đang tải danh sách di sản...
+            {t.admin.loading}
           </ThemedText>
         </View>
       </View>
@@ -125,39 +227,50 @@ export default function AdminHeritagesScreen() {
       {/* ── Curved Header ── */}
       <Animated.View
         entering={FadeIn.duration(500)}
-        style={[styles.header, { backgroundColor: colors.secondary, paddingTop: Math.max(insets.top, 12) }]}
+        style={[
+          styles.header, 
+          { 
+            backgroundColor: isDark ? '#1C1B1B' : colors.secondary, 
+            borderBottomWidth: isDark ? 1 : 0,
+            borderBottomColor: `${colors.primary}30`,
+            paddingTop: Math.max(insets.top, 12) 
+          }
+        ]}
       >
         <View style={styles.headerTop}>
           <Pressable
             onPress={() => router.back()}
             style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
           >
-            <IconSymbol name="chevron.left" size={22} color="#FFFFFF" />
+            <IconSymbol name="chevron.left" size={20} color="#FFFFFF" />
           </Pressable>
           <View style={styles.headerTitleBox}>
-            <ThemedText style={styles.headerTitle}>Quản lý Di sản</ThemedText>
+            <ThemedText style={styles.headerTitle}>{t.admin.heritagesTitle}</ThemedText>
             <ThemedText style={styles.headerSub}>
-              {heritages.length} di sản · {tangibleCount} vật thể · {intangibleCount} phi vật thể
+              {t.admin.statsSubtitle
+                .replace('{total}', heritages.length.toString())
+                .replace('{tangible}', tangibleCount.toString())
+                .replace('{intangible}', intangibleCount.toString())}
             </ThemedText>
           </View>
-          <View style={[styles.headerIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-            <IconSymbol name="building.2.fill" size={22} color="#FFFFFF" />
+          <View style={[styles.headerIcon, { backgroundColor: isDark ? 'rgba(242,202,80,0.15)' : 'rgba(255,255,255,0.2)' }]}>
+            <IconSymbol name="building.2.fill" size={20} color={isDark ? colors.primary : '#FFFFFF'} />
           </View>
         </View>
 
         {/* Stats row */}
         <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
+          <View style={[styles.statCard, { backgroundColor: isDark ? 'rgba(242, 202, 80, 0.08)' : 'rgba(255,255,255,0.16)' }]}>
             <ThemedText style={styles.statNum}>{heritages.length}</ThemedText>
-            <ThemedText style={styles.statLabel}>Tổng cộng</ThemedText>
+            <ThemedText style={styles.statLabel}>{t.admin.statsTotal}</ThemedText>
           </View>
-          <View style={[styles.statCard, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
+          <View style={[styles.statCard, { backgroundColor: isDark ? 'rgba(127, 222, 221, 0.08)' : 'rgba(255,255,255,0.16)' }]}>
             <ThemedText style={styles.statNum}>{tangibleCount}</ThemedText>
-            <ThemedText style={styles.statLabel}>Vật thể</ThemedText>
+            <ThemedText style={styles.statLabel}>{t.admin.statsTangible}</ThemedText>
           </View>
-          <View style={[styles.statCard, { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
+          <View style={[styles.statCard, { backgroundColor: isDark ? 'rgba(255, 180, 168, 0.08)' : 'rgba(255,255,255,0.16)' }]}>
             <ThemedText style={styles.statNum}>{intangibleCount}</ThemedText>
-            <ThemedText style={styles.statLabel}>Phi vật thể</ThemedText>
+            <ThemedText style={styles.statLabel}>{t.admin.statsIntangible}</ThemedText>
           </View>
         </View>
       </Animated.View>
@@ -175,30 +288,37 @@ export default function AdminHeritagesScreen() {
             size="large"
             fullWidth
             onPress={() => router.push('/admin/heritages/new' as Href)}
-            icon={<IconSymbol name="plus.circle.fill" size={20} color="#FFFFFF" />}
+            icon={<IconSymbol name="plus" size={16} color="#131313" />}
             iconPosition="left"
-            style={{ backgroundColor: colors.secondary }}
+            style={{ backgroundColor: colors.primary }}
+            textStyle={{ color: '#131313', fontWeight: '800' }}
           >
-            Thêm di sản mới
+            {t.admin.addNewHeritage}
           </Button>
         </Animated.View>
 
         {/* ── Search Bar ── */}
         <Animated.View entering={FadeInDown.delay(120).duration(500)}>
           <View
-            style={[styles.searchBar, { backgroundColor: colors.backgroundSecondary, borderColor: colors.borderLight }]}
+            style={[
+              styles.searchBar, 
+              { 
+                backgroundColor: isDark ? 'rgba(30,30,30,0.5)' : '#FFFFFF', 
+                borderColor: isDark ? 'rgba(242, 202, 80, 0.25)' : 'rgba(182, 139, 30, 0.3)' 
+              }
+            ]}
           >
-            <IconSymbol name="magnifyingglass" size={16} color={colors.textTertiary} />
+            <IconSymbol name="magnifyingglass" size={15} color={colors.textTertiary} />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Tìm tên di sản, tỉnh thành..."
+              placeholder={t.admin.searchPlaceholderHeritages}
               placeholderTextColor={colors.textTertiary}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <Pressable onPress={() => setSearchQuery('')}>
-                <IconSymbol name="xmark.circle.fill" size={16} color={colors.textTertiary} />
+                <IconSymbol name="xmark.circle.fill" size={15} color={colors.textTertiary} />
               </Pressable>
             )}
           </View>
@@ -209,19 +329,28 @@ export default function AdminHeritagesScreen() {
           <View style={styles.typeRow}>
             {FILTER_TYPES.map(tp => {
               const active = tp === selectedType;
-              let label = tp === 'Tất cả' ? 'Tất cả' : tp === 'tangible' ? t.heritage.types.tangible : t.heritage.types.intangible;
-              let color = active ? colors.secondary : colors.backgroundSecondary;
+              let label = tp === 'Tất cả' ? t.admin.filterAll : tp === 'tangible' ? t.heritage.types.tangible : t.heritage.types.intangible;
+              let color = active ? colors.primary : (isDark ? 'rgba(30,30,30,0.3)' : 'rgba(255,255,255,0.7)');
               return (
                 <Pressable
                   key={tp}
                   onPress={() => setSelectedType(tp)}
                   style={[
                     styles.typeChip,
-                    { backgroundColor: color, borderColor: active ? colors.secondary : colors.borderLight },
+                    { 
+                      backgroundColor: color, 
+                      borderColor: active ? colors.primary : `${colors.border}30`,
+                    },
                   ]}
                 >
                   <ThemedText
-                    style={[styles.typeChipText, { color: active ? '#FFFFFF' : colors.textSecondary }]}
+                    style={[
+                      styles.typeChipText, 
+                      { 
+                        color: active ? '#131313' : colors.textSecondary,
+                        fontWeight: active ? '800' : '600'
+                      }
+                    ]}
                   >
                     {label}
                   </ThemedText>
@@ -246,12 +375,12 @@ export default function AdminHeritagesScreen() {
                     variant={active ? 'warning' : 'secondary'}
                     size="medium"
                     style={active
-                      ? { ...styles.filterChip, backgroundColor: colors.warning }
-                      : { ...styles.filterChip, backgroundColor: colors.backgroundSecondary, borderColor: colors.borderLight }
+                      ? { ...styles.filterChip, backgroundColor: colors.primary, borderColor: colors.primary }
+                      : { ...styles.filterChip, backgroundColor: isDark ? 'rgba(30,30,30,0.4)' : '#FFFFFF', borderColor: `${colors.border}30` }
                     }
-                    textStyle={active ? { color: '#FFFFFF', fontWeight: '700' } : { color: colors.textSecondary }}
+                    textStyle={active ? { color: '#131313', fontWeight: '800' } : { color: colors.textSecondary }}
                   >
-                    {cat}
+                    {categoryLabelMap[language][cat] || cat}
                   </Badge>
                 </Pressable>
               );
@@ -264,12 +393,12 @@ export default function AdminHeritagesScreen() {
           {/* Result row */}
           <View style={styles.resultRow}>
             <ThemedText style={[styles.resultCount, { color: colors.textSecondary }]}>
-              {filteredHeritages.length} kết quả
-              {selectedType !== 'Tất cả' ? ` · ${selectedType === 'tangible' ? 'Vật thể' : 'Phi vật thể'}` : ''}
+              {t.admin.resultCountHeritages.replace('{count}', filteredHeritages.length.toString())}
+              {selectedType !== 'Tất cả' ? ` · ${selectedType === 'tangible' ? t.admin.statsTangible : t.admin.statsIntangible}` : ''}
             </ThemedText>
             <Pressable onPress={loadHeritages} style={styles.refreshBtn}>
               <IconSymbol name="arrow.clockwise" size={14} color={colors.secondary} />
-              <ThemedText style={[styles.refreshText, { color: colors.secondary }]}>Làm mới</ThemedText>
+              <ThemedText style={[styles.refreshText, { color: colors.secondary }]}>{t.admin.refresh}</ThemedText>
             </Pressable>
           </View>
 
@@ -280,12 +409,18 @@ export default function AdminHeritagesScreen() {
                   <IconSymbol name="building.2" size={40} color={colors.textTertiary} />
                 </View>
                 <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
-                  {heritages.length === 0 ? 'Chưa có di sản nào' : 'Không tìm thấy kết quả'}
+                  {heritages.length === 0 
+                    ? (language === 'vi' ? 'Chưa có di sản nào' : language === 'km' ? 'មិនទាន់មានបេតិកភណ្ឌទេ' : 'No heritage yet') 
+                    : t.common.noResults}
                 </ThemedText>
                 <ThemedText style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
                   {heritages.length === 0
-                    ? 'Bấm nút "Thêm di sản mới" để tạo di sản đầu tiên'
-                    : 'Thử thay đổi từ khóa hoặc bộ lọc'}
+                    ? (language === 'vi' ? 'Bấm nút "Thêm di sản mới" để tạo di sản đầu tiên' 
+                       : language === 'km' ? 'ចុចប៊ូតុង "បន្ថែមបេតិកភណ្ឌថ្មី" ដើម្បីបង្កើតបេតិកភណ្ឌដំបូង' 
+                       : 'Press "Add New Heritage" to create the first heritage')
+                    : (language === 'vi' ? 'Thử thay đổi từ khóa hoặc bộ lọc' 
+                       : language === 'km' ? 'សាកល្បងផ្លាស់ប្តូរពាក្យគន្លឹះ ឬតម្រង' 
+                       : 'Try changing keywords or filters')}
                 </ThemedText>
               </Card>
             </Animated.View>
@@ -298,13 +433,7 @@ export default function AdminHeritagesScreen() {
                 <Card variant="elevated" style={styles.heritageCard}>
                   {/* ── Top Row ── */}
                   <View style={styles.cardTop}>
-                    {item.coverImage ? (
-                      <Image source={{ uri: item.coverImage }} style={styles.thumbnail} />
-                    ) : (
-                      <View style={[styles.thumbnailPlaceholder, { backgroundColor: colors.secondary + '18' }]}>
-                        <IconSymbol name="building.2.fill" size={24} color={colors.secondary} />
-                      </View>
-                    )}
+                    <Image source={getHeritageImageSource(item.id, item.coverImage, item.type)} style={styles.thumbnail} />
 
                     <View style={styles.cardInfo}>
                       <ThemedText style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>
@@ -317,7 +446,9 @@ export default function AdminHeritagesScreen() {
                         >
                           {item.type === 'tangible' ? t.heritage.types.tangible : t.heritage.types.intangible}
                         </Badge>
-                        <Badge variant="secondary" size="small">{item.category}</Badge>
+                        <Badge variant="secondary" size="small">
+                          {categoryLabelMap[language][item.category] || item.category}
+                        </Badge>
                       </View>
                       <View style={styles.locationRow}>
                         <IconSymbol name="location.fill" size={12} color={colors.secondary} />
@@ -342,97 +473,89 @@ export default function AdminHeritagesScreen() {
                     <View style={styles.statItem}>
                       <IconSymbol name="eye.fill" size={13} color={colors.info} />
                       <ThemedText style={[styles.statVal, { color: colors.textSecondary }]}>
-                        {item.views ?? 0} lượt xem
+                        {(item.views ?? 0).toLocaleString()} {language === 'vi' ? 'lượt xem' : language === 'km' ? 'ការចូលមើល' : 'views'}
                       </ThemedText>
                     </View>
                     <View style={styles.statItem}>
                       <IconSymbol name="heart.fill" size={13} color={colors.accent} />
                       <ThemedText style={[styles.statVal, { color: colors.textSecondary }]}>
-                        {item.likes ?? 0} thích
+                        {(item.likes ?? 0).toLocaleString()} {language === 'vi' ? 'thích' : language === 'km' ? 'ចូលចិត្ត' : 'likes'}
                       </ThemedText>
                     </View>
                     {item.location?.lat && (
                       <View style={styles.statItem}>
                         <IconSymbol name="map.fill" size={13} color={colors.accentGreen} />
                         <ThemedText style={[styles.statVal, { color: colors.textSecondary }]}>
-                          Có tọa độ
+                          {language === 'vi' ? 'Có tọa độ' : language === 'km' ? 'មានកូអរដោនេ' : 'Has coordinates'}
                         </ThemedText>
                       </View>
                     )}
                   </View>
 
                   {/* ── Action Buttons ── */}
-                  <View style={styles.actionsRow}>
+                  {/* ── Action Buttons ── */}
+                   <View style={[styles.actionsRow, { borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}>
                     <Pressable
-                      style={({ pressed }) => [
-                        {
-                          flex: 1,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 6,
-                          height: 38,
-                          borderRadius: 19,
-                          borderWidth: 1.2,
-                          backgroundColor: colors.info + '18',
-                          borderColor: colors.info + '60',
-                          paddingVertical: 8,
-                          paddingHorizontal: 12,
-                        },
-                        pressed && { opacity: 0.75, transform: [{ scale: 0.97 }] },
-                      ]}
+                      style={{ flex: 1 }}
                       onPress={() => router.push(`/heritage/${item.id}` as Href)}
                     >
-                      <IconSymbol name="eye.fill" size={14} color={colors.info} />
-                      <ThemedText style={{ fontSize: 13, fontWeight: '700', color: colors.info }}>Xem</ThemedText>
+                      {({ pressed }) => (
+                        <View
+                          style={StyleSheet.flatten([
+                            styles.actionBtn,
+                            {
+                              backgroundColor: pressed ? btnStyles.view.border : btnStyles.view.bg,
+                              borderColor: btnStyles.view.border,
+                              transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                            }
+                          ])}
+                        >
+                          <IconSymbol name="eye.fill" size={14} color={btnStyles.view.text} />
+                          <ThemedText style={[styles.actionText, { color: btnStyles.view.text }]}>{t.admin.actionView}</ThemedText>
+                        </View>
+                      )}
                     </Pressable>
 
                     <Pressable
-                      style={({ pressed }) => [
-                        {
-                          flex: 1,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 6,
-                          height: 38,
-                          borderRadius: 19,
-                          borderWidth: 1.2,
-                          backgroundColor: colors.primary + '18',
-                          borderColor: colors.primary + '60',
-                          paddingVertical: 8,
-                          paddingHorizontal: 12,
-                        },
-                        pressed && { opacity: 0.75, transform: [{ scale: 0.97 }] },
-                      ]}
+                      style={{ flex: 1 }}
                       onPress={() => router.push(`/admin/heritages/${item.id}/edit` as Href)}
                     >
-                      <IconSymbol name="pencil" size={14} color={colors.primary} />
-                      <ThemedText style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Sửa</ThemedText>
+                      {({ pressed }) => (
+                        <View
+                          style={StyleSheet.flatten([
+                            styles.actionBtn,
+                            {
+                              backgroundColor: pressed ? btnStyles.edit.border : btnStyles.edit.bg,
+                              borderColor: btnStyles.edit.border,
+                              transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                            }
+                          ])}
+                        >
+                          <IconSymbol name="pencil" size={14} color={btnStyles.edit.text} />
+                          <ThemedText style={[styles.actionText, { color: btnStyles.edit.text }]}>{t.admin.actionEdit}</ThemedText>
+                        </View>
+                      )}
                     </Pressable>
 
                     <Pressable
-                      style={({ pressed }) => [
-                        {
-                          flex: 1,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 6,
-                          height: 38,
-                          borderRadius: 19,
-                          borderWidth: 1.2,
-                          backgroundColor: colors.error + '18',
-                          borderColor: colors.error + '60',
-                          paddingVertical: 8,
-                          paddingHorizontal: 12,
-                        },
-                        pressed && { opacity: 0.75, transform: [{ scale: 0.97 }] },
-                      ]}
+                      style={{ flex: 1 }}
                       onPress={() => handleDelete(item.id, item.title)}
                     >
-                      <IconSymbol name="trash.fill" size={14} color={colors.error} />
-                      <ThemedText style={{ fontSize: 13, fontWeight: '700', color: colors.error }}>Xóa</ThemedText>
+                      {({ pressed }) => (
+                        <View
+                          style={StyleSheet.flatten([
+                            styles.actionBtn,
+                            {
+                              backgroundColor: pressed ? btnStyles.delete.border : btnStyles.delete.bg,
+                              borderColor: btnStyles.delete.border,
+                              transform: pressed ? [{ scale: 0.96 }] : [{ scale: 1 }],
+                            }
+                          ])}
+                        >
+                          <IconSymbol name="trash.fill" size={14} color={btnStyles.delete.text} />
+                          <ThemedText style={[styles.actionText, { color: btnStyles.delete.text }]}>{t.admin.actionDelete}</ThemedText>
+                        </View>
+                      )}
                     </Pressable>
                   </View>
                 </Card>
@@ -441,6 +564,20 @@ export default function AdminHeritagesScreen() {
           )}
         </View>
       </ScrollView>
+
+      <CustomAlert
+        visible={alertConfig.visible}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText={alertConfig.confirmText}
+        cancelText={alertConfig.cancelText}
+        onConfirm={alertConfig.onConfirm}
+        onClose={() => {
+          setAlertConfig(prev => ({ ...prev, visible: false }));
+          if (alertConfig.onClose) alertConfig.onClose();
+        }}
+      />
     </View>
   );
 }
@@ -464,8 +601,8 @@ const styles = StyleSheet.create({
   header: {
     paddingBottom: Spacing.xl,
     paddingHorizontal: Spacing.lg,
-    borderBottomLeftRadius: BorderRadius.xxl,
-    borderBottomRightRadius: BorderRadius.xxl,
+    borderBottomLeftRadius: BorderRadius.xl,
+    borderBottomRightRadius: BorderRadius.xl,
     gap: Spacing.md,
     ...Shadows.large,
   },
@@ -475,12 +612,14 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   headerTitleBox: {
     flex: 1,
@@ -489,16 +628,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: '#FFFFFF',
+    fontFamily: 'Outfit_700Bold',
   },
   headerSub: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
   },
   headerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: BorderRadius.md,
+    width: 36,
+    height: 36,
+    borderRadius: BorderRadius.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -512,15 +652,18 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     alignItems: 'center',
     gap: 2,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   statNum: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
+    fontFamily: 'Outfit_700Bold',
   },
   statLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.75)',
     fontWeight: '600',
   },
 
@@ -531,7 +674,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: Spacing.lg,
     gap: Spacing.md,
-    paddingBottom: Spacing.xxl,
+    paddingBottom: 120,
   },
 
   // ── Search ──
@@ -540,14 +683,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
-    height: 48,
+    height: 46,
     borderRadius: BorderRadius.md,
-    borderWidth: 1,
+    borderWidth: 0.5,
     ...Shadows.small,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     height: '100%',
     padding: 0,
   },
@@ -560,13 +703,18 @@ const styles = StyleSheet.create({
   typeChip: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: Spacing.sm,
+    paddingVertical: 10,
     borderRadius: BorderRadius.md,
-    borderWidth: 1.5,
+    borderWidth: 1,
+    ...Platform.select({
+      ios: Shadows.small,
+      web: Shadows.small,
+      default: {},
+    }),
   },
   typeChipText: {
-    ...Typography.labelMedium,
-    fontWeight: '700',
+    ...Typography.labelSmall,
+    fontSize: 12,
   },
 
   // ── Category Filter ──
@@ -575,12 +723,12 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   filterChip: {
-    borderWidth: 1,
+    borderWidth: 0.5,
   },
 
   // ── List ──
   listSection: {
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
   resultRow: {
     flexDirection: 'row',
@@ -604,30 +752,33 @@ const styles = StyleSheet.create({
   // ── Empty ──
   emptyCard: {
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.sm,
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 0.5,
   },
   emptyIconBg: {
-    width: 70,
-    height: 70,
-    borderRadius: BorderRadius.lg,
+    width: 60,
+    height: 60,
+    borderRadius: BorderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
   emptyTitle: {
-    ...Typography.titleMedium,
+    ...Typography.titleSmall,
     fontWeight: '700',
   },
   emptySubtitle: {
-    ...Typography.bodyMedium,
+    ...Typography.bodySmall,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 18,
   },
 
   // ── Heritage Card ──
   heritageCard: {
     padding: 0,
-    overflow: 'hidden',
     gap: 0,
+    borderRadius: BorderRadius.lg,
   },
   cardTop: {
     flexDirection: 'row',
@@ -635,23 +786,15 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   thumbnail: {
-    width: 76,
-    height: 76,
+    width: 72,
+    height: 72,
     borderRadius: BorderRadius.md,
     resizeMode: 'cover',
     flexShrink: 0,
   },
-  thumbnailPlaceholder: {
-    width: 76,
-    height: 76,
-    borderRadius: BorderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
   cardInfo: {
     flex: 1,
-    gap: 5,
+    gap: 4,
     justifyContent: 'center',
   },
   cardTitle: {
@@ -671,6 +814,7 @@ const styles = StyleSheet.create({
   },
   locationText: {
     ...Typography.bodySmall,
+    fontSize: 12,
     fontWeight: '600',
   },
 
@@ -678,11 +822,12 @@ const styles = StyleSheet.create({
   subtitleRow: {
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
-    borderTopWidth: 1,
+    borderTopWidth: 0.5,
     paddingTop: Spacing.sm,
   },
   subtitleText: {
     ...Typography.bodySmall,
+    fontSize: 12,
     lineHeight: 18,
     fontStyle: 'italic',
   },
@@ -692,8 +837,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.md,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderTopWidth: 1,
+    paddingVertical: 8,
+    borderTopWidth: 0.5,
     flexWrap: 'wrap',
   },
   statItem: {
@@ -703,6 +848,7 @@ const styles = StyleSheet.create({
   },
   statVal: {
     ...Typography.bodySmall,
+    fontSize: 11,
     fontWeight: '600',
   },
 
@@ -711,7 +857,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.sm,
     padding: Spacing.md,
-    borderTopWidth: 1,
+    borderTopWidth: 0.5,
     borderTopColor: 'rgba(0,0,0,0.06)',
   },
   actionBtn: {
@@ -719,18 +865,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 8,
-    borderRadius: BorderRadius.full,
+    gap: 6,
+    height: 42,
+    borderRadius: 21,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
+    ...Shadows.small,
   },
   actionText: {
-    ...Typography.labelSmall,
-    fontWeight: '800',
+    fontFamily: FontFamily.interSemiBold,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
