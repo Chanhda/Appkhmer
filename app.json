@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "khmerApp",
-    "slug": "khmerApp",
+    "slug": "khmerapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.chanhda.khmerapp",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -44,6 +45,19 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "90673e8c-6b91-4450-93ed-3b43f996ab2b"
+      }
+    },
+    "owner": "chanhda",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/90673e8c-6b91-4450-93ed-3b43f996ab2b"
     }
   }
 }
