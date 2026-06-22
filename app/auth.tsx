@@ -20,16 +20,61 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { CustomAlert } from '@/components/ui/custom-alert';
 import { BorderRadius, Colors, Spacing, Typography, Shadows, FontFamily } from '@/constants/theme';
 import { useColorSchemePreference } from '@/contexts/color-scheme-context';
+import { useLanguage } from '@/contexts/language-context';
+import { Translations } from '@/constants/languages';
 import { loginWithEmail, registerWithEmail, resetPasswordWithEmail } from '@/lib/auth';
 import { isFirebaseConfigured } from '@/lib/firebase';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+function getFriendlyErrorMessage(error: unknown, t: Translations): string {
+  if (!(error instanceof Error)) {
+    return t.auth.errors.default;
+  }
+
+  const message = error.message || '';
+  const firebaseError = error as any;
+  const code = firebaseError.code || '';
+  
+  if (code === 'auth/invalid-credential' || message.includes('auth/invalid-credential')) {
+    return t.auth.errors.invalidCredential;
+  }
+  if (code === 'auth/wrong-password' || message.includes('auth/wrong-password')) {
+    return t.auth.errors.wrongPassword;
+  }
+  if (code === 'auth/user-not-found' || message.includes('auth/user-not-found')) {
+    return t.auth.errors.userNotFound;
+  }
+  if (code === 'auth/email-already-in-use' || message.includes('auth/email-already-in-use')) {
+    return t.auth.errors.emailAlreadyInUse;
+  }
+  if (code === 'auth/invalid-email' || message.includes('auth/invalid-email')) {
+    return t.auth.errors.invalidEmail;
+  }
+  if (code === 'auth/weak-password' || message.includes('auth/weak-password')) {
+    return t.auth.errors.weakPassword;
+  }
+  if (code === 'auth/too-many-requests' || message.includes('auth/too-many-requests')) {
+    return t.auth.errors.tooManyRequests;
+  }
+  if (code === 'auth/network-request-failed' || message.includes('auth/network-request-failed')) {
+    return t.auth.errors.networkRequestFailed;
+  }
+
+  return message.replace(
+    'Firebase:', 
+    t.auth.subtitle.startsWith('CỔNG') 
+      ? 'Hệ thống:' 
+      : (t.auth.subtitle.startsWith('ច្រក') ? 'ប្រព័ន្ធ:' : 'System:')
+  );
+}
 
 export default function AuthScreen() {
   const router = useRouter();
   const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
   const { resolvedColorScheme } = useColorSchemePreference();
   const C = Colors[resolvedColorScheme];
+  const { t } = useLanguage();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -71,7 +116,7 @@ export default function AuthScreen() {
 
   async function handleResetPassword() {
     if (!email.trim() || !email.includes('@')) {
-      showAlert('Email không hợp lệ', 'Vui lòng nhập địa chỉ email chính xác.', 'error');
+      showAlert(t.auth.invalidEmailTitle, t.auth.invalidEmailDesc, 'error');
       return;
     }
 
@@ -79,13 +124,13 @@ export default function AuthScreen() {
       setLoading(true);
       await resetPasswordWithEmail(email.trim());
       showAlert(
-        'Đã gửi yêu cầu',
-        'Một liên kết khôi phục mật khẩu đã được gửi đến email của bạn. Hãy kiểm tra hộp thư đến (và cả hòm thư rác).',
+        t.auth.resetLinkSentTitle,
+        t.auth.resetLinkSentDesc,
         'success',
         () => setIsForgotPasswordMode(false)
       );
     } catch (error) {
-      showAlert('Lỗi', error instanceof Error ? error.message : 'Không gửi được email khôi phục', 'error');
+      showAlert(t.common.error, getFriendlyErrorMessage(error, t), 'error');
     } finally {
       setLoading(false);
     }
@@ -93,27 +138,27 @@ export default function AuthScreen() {
 
   function validateInputs() {
     if (!email.trim() || !password.trim()) {
-      showAlert('Thiếu thông tin', 'Vui lòng nhập email và mật khẩu.', 'warning');
+      showAlert(t.auth.missingInfoTitle, t.auth.missingInfoDesc, 'warning');
       return false;
     }
 
     if (!email.includes('@')) {
-      showAlert('Email không hợp lệ', 'Hãy nhập đúng địa chỉ email.', 'warning');
+      showAlert(t.auth.invalidEmailTitle, t.auth.invalidEmailDesc, 'warning');
       return false;
     }
 
     if (password.trim().length < 6) {
-      showAlert('Mật khẩu quá ngắn', 'Mật khẩu phải có ít nhất 6 ký tự.', 'warning');
+      showAlert(t.auth.passwordTooShortTitle, t.auth.passwordTooShortDesc, 'warning');
       return false;
     }
 
     if (isRegisterMode) {
       if (!confirmPassword.trim()) {
-        showAlert('Thiếu thông tin', 'Vui lòng nhập lại mật khẩu để xác nhận.', 'warning');
+        showAlert(t.auth.confirmPasswordMissingTitle, t.auth.confirmPasswordMissingDesc, 'warning');
         return false;
       }
       if (password !== confirmPassword) {
-        showAlert('Mật khẩu không khớp', 'Mật khẩu nhập lại không trùng khớp.', 'warning');
+        showAlert(t.auth.passwordsDoNotMatchTitle, t.auth.passwordsDoNotMatchDesc, 'warning');
         return false;
       }
     }
@@ -129,7 +174,7 @@ export default function AuthScreen() {
     try {
       setLoading(true);
       const result = await loginWithEmail(email.trim(), password);
-      showAlert('Thành công', 'Đăng nhập thành công.', 'success', () => {
+      showAlert(t.admin.alerts.success, t.auth.loginSuccess, 'success', () => {
         if (redirectTo) {
           router.replace(redirectTo as any);
         } else {
@@ -137,7 +182,7 @@ export default function AuthScreen() {
         }
       });
     } catch (error) {
-      showAlert('Lỗi', error instanceof Error ? error.message : 'Không đăng nhập được', 'error');
+      showAlert(t.common.error, getFriendlyErrorMessage(error, t), 'error');
     } finally {
       setLoading(false);
     }
@@ -151,7 +196,7 @@ export default function AuthScreen() {
     try {
       setLoading(true);
       const result = await registerWithEmail(email.trim(), password);
-      showAlert('Thành công', 'Đăng ký tài khoản thành công.', 'success', () => {
+      showAlert(t.admin.alerts.success, t.auth.registerSuccess, 'success', () => {
         if (redirectTo) {
           router.replace(redirectTo as any);
         } else {
@@ -159,7 +204,7 @@ export default function AuthScreen() {
         }
       });
     } catch (error) {
-      showAlert('Lỗi', error instanceof Error ? error.message : 'Không đăng ký được', 'error');
+      showAlert(t.common.error, getFriendlyErrorMessage(error, t), 'error');
     } finally {
       setLoading(false);
     }
@@ -202,7 +247,7 @@ export default function AuthScreen() {
             <IconSymbol name="building.columns.fill" size={32} color={C.primary} />
           </View>
           <Text style={[styles.brandTitle, { color: C.primary }]}>Heritage</Text>
-          <Text style={[styles.brandSubtitle, { color: C.textTertiary }]}>CỔNG KẾT NỐI DI SẢN VĂN HÓA KHMER</Text>
+          <Text style={[styles.brandSubtitle, { color: C.textTertiary }]}>{t.auth.subtitle}</Text>
         </Animated.View>
 
         {/* Input Form Section */}
@@ -219,10 +264,10 @@ export default function AuthScreen() {
         >
           <Text style={[styles.formTitle, { color: C.primary, fontFamily: FontFamily.playfairMedium }]}>
             {isForgotPasswordMode 
-              ? 'Khôi phục mật khẩu' 
+              ? t.auth.forgotPasswordTitle 
               : isRegisterMode 
-                ? 'Đăng ký tài khoản' 
-                : 'Đăng nhập tài khoản'}
+                ? t.auth.registerTitle 
+                : t.auth.loginTitle}
           </Text>
 
           {!canUseFirebase && (
@@ -242,24 +287,24 @@ export default function AuthScreen() {
                   color={isDark ? C.primary : C.primaryDark} 
                 />
                 <Text style={[styles.noticeTitle, { color: isDark ? C.primary : C.primaryDark }]}>
-                  Firebase chưa kết nối
+                  {t.auth.firebaseNotConfiguredTitle}
                 </Text>
               </View>
               <Text style={[styles.noticeText, { color: C.textSecondary }]}>
-                Hãy điền cấu hình EXPO_PUBLIC_FIREBASE_* vào .env để kích hoạt tài khoản thật.
+                {t.auth.firebaseNotConfiguredDesc}
               </Text>
             </View>
           )}
 
           {isForgotPasswordMode && (
             <Text style={[styles.forgotPasswordDesc, { color: C.textSecondary }]}>
-              Nhập địa chỉ email của bạn bên dưới. Hệ thống sẽ gửi liên kết khôi phục qua email để bạn cài đặt lại mật khẩu mới.
+              {t.auth.resetPasswordDesc}
             </Text>
           )}
 
           {/* Email Input */}
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: C.textSecondary }]}>ĐỊA CHỈ EMAIL</Text>
+            <Text style={[styles.inputLabel, { color: C.textSecondary }]}>{t.auth.emailLabel}</Text>
             <View 
               style={[
                 styles.inputWrapper, 
@@ -279,7 +324,7 @@ export default function AuthScreen() {
               <TextInput
                 value={email}
                 onChangeText={setEmail}
-                placeholder="email@vidu.com"
+                placeholder={t.auth.emailPlaceholder}
                 placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)'}
                 autoCapitalize="none"
                 keyboardType="email-address"
@@ -293,7 +338,7 @@ export default function AuthScreen() {
           {/* Password Input */}
           {!isForgotPasswordMode && (
             <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: C.textSecondary }]}>MẬT KHẨU</Text>
+              <Text style={[styles.inputLabel, { color: C.textSecondary }]}>{t.auth.passwordLabel}</Text>
               <View 
                 style={[
                   styles.inputWrapper, 
@@ -313,7 +358,7 @@ export default function AuthScreen() {
                 <TextInput
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="Nhập ít nhất 6 ký tự"
+                  placeholder={t.auth.passwordPlaceholder}
                   placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)'}
                   secureTextEntry={!showPassword}
                   style={[styles.input, { color: C.text }]}
@@ -333,7 +378,7 @@ export default function AuthScreen() {
                   onPress={() => setIsForgotPasswordMode(true)} 
                   style={styles.forgotPasswordLink}
                 >
-                  <Text style={[styles.forgotPasswordText, { color: isDark ? C.primary : C.primaryDark }]}>Quên mật khẩu?</Text>
+                  <Text style={[styles.forgotPasswordText, { color: isDark ? C.primary : C.primaryDark }]}>{t.auth.forgotPasswordLink}</Text>
                 </Pressable>
               )}
             </View>
@@ -342,7 +387,7 @@ export default function AuthScreen() {
           {/* Confirm Password Input (Only in Register Mode) */}
           {!isForgotPasswordMode && isRegisterMode && (
             <Animated.View entering={FadeInDown.duration(400)} style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: C.textSecondary }]}>NHẬP LẠI MẬT KHẨU</Text>
+              <Text style={[styles.inputLabel, { color: C.textSecondary }]}>{t.auth.confirmPasswordLabel}</Text>
               <View 
                 style={[
                   styles.inputWrapper, 
@@ -362,7 +407,7 @@ export default function AuthScreen() {
                 <TextInput
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  placeholder="Xác nhận lại mật khẩu"
+                  placeholder={t.auth.confirmPasswordPlaceholder}
                   placeholderTextColor={isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)'}
                   secureTextEntry={!showPassword}
                   style={[styles.input, { color: C.text }]}
@@ -399,7 +444,9 @@ export default function AuthScreen() {
                       />
                     </View>
                     <Text style={styles.primaryButtonText}>
-                      {isForgotPasswordMode ? 'Gửi liên kết khôi phục' : (isRegisterMode ? 'Đăng Ký Ngay' : 'Đăng Nhập')}
+                      {isForgotPasswordMode 
+                        ? t.auth.sendResetLinkButton 
+                        : (isRegisterMode ? t.auth.registerButton : t.auth.loginButton)}
                     </Text>
                     <IconSymbol name="chevron.right" size={14} color="rgba(19,19,19,0.6)" />
                   </View>
@@ -436,8 +483,8 @@ export default function AuthScreen() {
                 </View>
                 <Text style={[styles.secondaryButtonText, { color: isDark ? C.primary : C.primaryDark }]}>
                   {isForgotPasswordMode 
-                    ? 'Quay lại đăng nhập' 
-                    : (isRegisterMode ? 'Đã có tài khoản? Đăng nhập' : 'Tạo tài khoản mới')}
+                    ? t.auth.backToLoginButton 
+                    : (isRegisterMode ? t.auth.hasAccountLink : t.auth.noAccountLink)}
                 </Text>
                 <IconSymbol name="chevron.right" size={14} color={isDark ? `${C.primary}90` : `${C.primaryDark}90`} />
               </View>

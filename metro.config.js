@@ -20,4 +20,7 @@ if (existingBlockList instanceof RegExp) {
   config.resolver.blockList = adminPattern;
 }
 
+// Force Metro to run tasks on the main process to bypass Node.js v24 child process serialization memory errors
+config.maxWorkers = 1;
+
 module.exports = withNativeWind(config, { input: './global.css' });

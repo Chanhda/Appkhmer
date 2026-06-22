@@ -239,6 +239,59 @@ export interface Translations {
       togglePublishError: string;
     };
   };
+  auth: {
+    title: string;
+    subtitle: string;
+    loginTitle: string;
+    registerTitle: string;
+    forgotPasswordTitle: string;
+    emailLabel: string;
+    emailPlaceholder: string;
+    passwordLabel: string;
+    passwordPlaceholder: string;
+    confirmPasswordLabel: string;
+    confirmPasswordPlaceholder: string;
+    forgotPasswordLink: string;
+    loginButton: string;
+    registerButton: string;
+    sendResetLinkButton: string;
+    backToLoginButton: string;
+    noAccountLink: string;
+    hasAccountLink: string;
+    resetPasswordDesc: string;
+    firebaseNotConfiguredTitle: string;
+    firebaseNotConfiguredDesc: string;
+    
+    // Alerts/validations
+    invalidEmailTitle: string;
+    invalidEmailDesc: string;
+    missingInfoTitle: string;
+    missingInfoDesc: string;
+    passwordTooShortTitle: string;
+    passwordTooShortDesc: string;
+    confirmPasswordMissingTitle: string;
+    confirmPasswordMissingDesc: string;
+    passwordsDoNotMatchTitle: string;
+    passwordsDoNotMatchDesc: string;
+    
+    // Success messages
+    loginSuccess: string;
+    registerSuccess: string;
+    resetLinkSentTitle: string;
+    resetLinkSentDesc: string;
+    
+    errors: {
+      default: string;
+      invalidCredential: string;
+      wrongPassword: string;
+      userNotFound: string;
+      emailAlreadyInUse: string;
+      invalidEmail: string;
+      weakPassword: string;
+      tooManyRequests: string;
+      networkRequestFailed: string;
+    };
+  };
 }
 
 export const translations: Record<Language, Translations> = {
@@ -468,6 +521,54 @@ export const translations: Record<Language, Translations> = {
         togglePublishError: 'Không thể thay đổi trạng thái bài viết.',
       },
     },
+    auth: {
+      title: 'Heritage',
+      subtitle: 'CỔNG KẾT NỐI DI SẢN VĂN HÓA KHMER',
+      loginTitle: 'Đăng nhập tài khoản',
+      registerTitle: 'Đăng ký tài khoản',
+      forgotPasswordTitle: 'Khôi phục mật khẩu',
+      emailLabel: 'ĐỊA CHỈ EMAIL',
+      emailPlaceholder: 'email@vidu.com',
+      passwordLabel: 'MẬT KHẨU',
+      passwordPlaceholder: 'Nhập ít nhất 6 ký tự',
+      confirmPasswordLabel: 'NHẬP LẠI MẬT KHẨU',
+      confirmPasswordPlaceholder: 'Xác nhận lại mật khẩu',
+      forgotPasswordLink: 'Quên mật khẩu?',
+      loginButton: 'Đăng Nhập',
+      registerButton: 'Đăng Ký Ngay',
+      sendResetLinkButton: 'Gửi liên kết khôi phục',
+      backToLoginButton: 'Quay lại đăng nhập',
+      noAccountLink: 'Tạo tài khoản mới',
+      hasAccountLink: 'Đã có tài khoản? Đăng nhập',
+      resetPasswordDesc: 'Nhập địa chỉ email của bạn bên dưới. Hệ thống sẽ gửi liên kết khôi phục qua email để bạn cài đặt lại mật khẩu mới.',
+      firebaseNotConfiguredTitle: 'Firebase chưa kết nối',
+      firebaseNotConfiguredDesc: 'Hãy điền cấu hình EXPO_PUBLIC_FIREBASE_* vào .env để kích hoạt tài khoản thật.',
+      invalidEmailTitle: 'Email không hợp lệ',
+      invalidEmailDesc: 'Vui lòng nhập địa chỉ email chính xác.',
+      missingInfoTitle: 'Thiếu thông tin',
+      missingInfoDesc: 'Vui lòng nhập email và mật khẩu.',
+      passwordTooShortTitle: 'Mật khẩu quá ngắn',
+      passwordTooShortDesc: 'Mật khẩu phải có ít nhất 6 ký tự.',
+      confirmPasswordMissingTitle: 'Thiếu thông tin',
+      confirmPasswordMissingDesc: 'Vui lòng nhập lại mật khẩu để xác nhận.',
+      passwordsDoNotMatchTitle: 'Mật khẩu không khớp',
+      passwordsDoNotMatchDesc: 'Mật khẩu nhập lại không trùng khớp.',
+      loginSuccess: 'Đăng nhập thành công.',
+      registerSuccess: 'Đăng ký tài khoản thành công.',
+      resetLinkSentTitle: 'Đã gửi yêu cầu',
+      resetLinkSentDesc: 'Một liên kết khôi phục mật khẩu đã được gửi đến email của bạn. Hãy kiểm tra hộp thư đến (và cả hòm thư rác).',
+      errors: {
+        default: 'Đã có lỗi xảy ra. Vui lòng thử lại sau.',
+        invalidCredential: 'Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!',
+        wrongPassword: 'Mật khẩu không chính xác. Vui lòng kiểm tra lại!',
+        userNotFound: 'Tài khoản email này chưa được đăng ký trên hệ thống.',
+        emailAlreadyInUse: 'Địa chỉ email này đã được sử dụng cho một tài khoản khác.',
+        invalidEmail: 'Địa chỉ email không đúng định dạng. Vui lòng kiểm tra lại!',
+        weakPassword: 'Mật khẩu quá yếu. Mật khẩu cần có ít nhất 6 ký tự.',
+        tooManyRequests: 'Tài khoản đã bị tạm khóa do đăng nhập sai quá nhiều lần. Vui lòng thử lại sau!',
+        networkRequestFailed: 'Lỗi kết nối mạng. Vui lòng kiểm tra lại đường truyền internet của bạn.',
+      },
+    },
   },
   km: {
     common: {
@@ -695,6 +796,54 @@ export const translations: Record<Language, Translations> = {
         togglePublishError: 'មិនអាចផ្លាស់ប្តូរស្ថានភាពអត្ថបទបានទេ។',
       },
     },
+    auth: {
+      title: 'Heritage',
+      subtitle: 'ច្រកទ្វារតភ្ជាប់បេតិកភណ្ឌវប្បធម៌ខ្មែរ',
+      loginTitle: 'ចូលប្រើប្រាស់គណនី',
+      registerTitle: 'ចុះឈ្មោះគណនី',
+      forgotPasswordTitle: 'ស្ដារពាក្យសម្ងាត់ឡើងវិញ',
+      emailLabel: 'អាសយដ្ឋានអ៊ីមែល',
+      emailPlaceholder: 'email@vidu.com',
+      passwordLabel: 'ពាក្យសម្ងាត់',
+      passwordPlaceholder: 'បញ្ចូលយ៉ាងតិច ៦ ខ្ទង់',
+      confirmPasswordLabel: 'បញ្ចូលពាក្យសម្ងាត់ឡើងវិញ',
+      confirmPasswordPlaceholder: 'បញ្ជាក់ពាក្យសម្ងាត់ឡើងវិញ',
+      forgotPasswordLink: 'ភ្លេចពាក្យសម្ងាត់?',
+      loginButton: 'ចូលប្រើប្រាស់',
+      registerButton: 'ចុះឈ្មោះឥឡូវនេះ',
+      sendResetLinkButton: 'ផ្ញើតំណភ្ជាប់ដើម្បីស្ដារឡើងវិញ',
+      backToLoginButton: 'ត្រឡប់ទៅចូលគណនីវិញ',
+      noAccountLink: 'បង្កើតគណនីថ្មី',
+      hasAccountLink: 'មានគណនីហើយ? ចូលប្រើប្រាស់',
+      resetPasswordDesc: 'បញ្ចូលអាសយដ្ឋានអ៊ីមែលរបស់អ្នកនៅខាងក្រោម។ ប្រព័ន្ធនឹងផ្ញើតំណភ្ជាប់ដើម្បីស្ដារពាក្យសម្ងាត់ឡើងវិញទៅកាន់អ៊ីមែលរបស់អ្នក ដើម្បីកំណត់ពាក្យសម្ងាត់ថ្មី។',
+      firebaseNotConfiguredTitle: 'មិនទាន់ភ្ជាប់ Firebase',
+      firebaseNotConfiguredDesc: 'សូមបំពេញព័ត៌មាន EXPO_PUBLIC_FIREBASE_* នៅក្នុង .env ដើម្បីបើកដំណើរការគណនីពិត។',
+      invalidEmailTitle: 'អ៊ីមែលមិនត្រឹមត្រូវ',
+      invalidEmailDesc: 'សូមបញ្ចូលអាសយដ្ឋានអ៊ីមែលឱ្យបានត្រឹមត្រូវ។',
+      missingInfoTitle: 'ខ្វះព័ត៌មាន',
+      missingInfoDesc: 'សូមបញ្ចូលអ៊ីមែល និងពាក្យសម្ងាត់។',
+      passwordTooShortTitle: 'ពាក្យសម្ងាត់ខ្លីពេក',
+      passwordTooShortDesc: 'ពាក្យសម្ងាត់ត្រូវមានយ៉ាងតិច ៦ ខ្ទង់។',
+      confirmPasswordMissingTitle: 'ខ្វះព័ត៌មាន',
+      confirmPasswordMissingDesc: 'សូមបញ្ចូលពាក្យសម្ងាត់ឡើងវិញដើម្បីបញ្ជាក់។',
+      passwordsDoNotMatchTitle: 'ពាក្យសម្ងាត់មិនត្រូវគ្នា',
+      passwordsDoNotMatchDesc: 'ការបញ្ជាក់ពាក្យសម្ងាត់មិនត្រូវគ្នាទេ។',
+      loginSuccess: 'ចូលគណនីបានជោគជ័យ។',
+      registerSuccess: 'ចុះឈ្មោះគណនីបានជោគជ័យ។',
+      resetLinkSentTitle: 'បានផ្ញើសំណើ',
+      resetLinkSentDesc: 'តំណភ្ជាប់ដើម្បីស្ដារពាក្យសម្ងាត់ឡើងវិញត្រូវបានផ្ញើទៅកាន់អ៊ីមែលរបស់អ្នកហើយ។ សូមពិនិត្យប្រអប់សំបុត្រ (និងប្រអប់សារឥតបានការ)។',
+      errors: {
+        default: 'មានបញ្ហាបានកើតឡើង។ សូមព្យាយាមម្ដងទៀតនៅពេលក្រោយ។',
+        invalidCredential: 'អ៊ីមែល ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ។ សូមពិនិត្យឡើងវិញ!',
+        wrongPassword: 'ពាក្យសម្ងាត់មិនត្រឹមត្រូវ។ សូមពិនិត្យឡើងវិញ!',
+        userNotFound: 'គណនីអ៊ីមែលនេះមិនទាន់បានចុះឈ្មោះក្នុងប្រព័ន្ធទេ។',
+        emailAlreadyInUse: 'អាសយដ្ឋានអ៊ីមែលនេះត្រូវបានប្រើប្រាស់សម្រាប់គណនីផ្សេងរួចហើយ។',
+        invalidEmail: 'ទម្រង់អាសយដ្ឋានអ៊ីមែលមិនត្រឹមត្រូវ។ សូមពិនិត្យឡើងវិញ!',
+        weakPassword: 'ពាក្យសម្ងាត់ខ្សោយពេក។ ពាក្យសម្ងាត់ត្រូវមានយ៉ាងតិច ៦ ខ្ទង់។',
+        tooManyRequests: 'គណនីត្រូវបានផ្អាកបណ្ដោះអាសន្នដោយសារតែការចូលគណនីខុសច្រើនដង។ សូមព្យាយាមម្ដងទៀតនៅពេលក្រោយ!',
+        networkRequestFailed: 'មានបញ្ហាភ្ជាប់បណ្ដាញ។ សូមពិនិត្យការភ្ជាប់អ៊ីនធឺណិតរបស់អ្នកឡើងវិញ។',
+      },
+    },
   },
   en: {
     common: {
@@ -920,6 +1069,54 @@ export const translations: Record<Language, Translations> = {
         rejectError: 'Failed to reject article.',
         approveError: 'Failed to approve article.',
         togglePublishError: 'Failed to change article status.',
+      },
+    },
+    auth: {
+      title: 'Heritage',
+      subtitle: 'KHMER CULTURAL HERITAGE PORTAL',
+      loginTitle: 'Login to Account',
+      registerTitle: 'Register Account',
+      forgotPasswordTitle: 'Reset Password',
+      emailLabel: 'EMAIL ADDRESS',
+      emailPlaceholder: 'email@example.com',
+      passwordLabel: 'PASSWORD',
+      passwordPlaceholder: 'Enter at least 6 characters',
+      confirmPasswordLabel: 'CONFIRM PASSWORD',
+      confirmPasswordPlaceholder: 'Confirm your password',
+      forgotPasswordLink: 'Forgot password?',
+      loginButton: 'Login',
+      registerButton: 'Register Now',
+      sendResetLinkButton: 'Send Reset Link',
+      backToLoginButton: 'Back to Login',
+      noAccountLink: 'Create new account',
+      hasAccountLink: 'Already have an account? Login',
+      resetPasswordDesc: 'Enter your email address below. The system will send a password reset link to your email to set a new password.',
+      firebaseNotConfiguredTitle: 'Firebase Not Connected',
+      firebaseNotConfiguredDesc: 'Please fill EXPO_PUBLIC_FIREBASE_* configurations in .env to enable real accounts.',
+      invalidEmailTitle: 'Invalid Email',
+      invalidEmailDesc: 'Please enter a valid email address.',
+      missingInfoTitle: 'Missing Information',
+      missingInfoDesc: 'Please enter email and password.',
+      passwordTooShortTitle: 'Password Too Short',
+      passwordTooShortDesc: 'Password must be at least 6 characters long.',
+      confirmPasswordMissingTitle: 'Missing Information',
+      confirmPasswordMissingDesc: 'Please re-enter password to confirm.',
+      passwordsDoNotMatchTitle: 'Passwords Do Not Match',
+      passwordsDoNotMatchDesc: 'Confirm password does not match.',
+      loginSuccess: 'Login successful.',
+      registerSuccess: 'Account registered successfully.',
+      resetLinkSentTitle: 'Request Sent',
+      resetLinkSentDesc: 'A password reset link has been sent to your email. Please check your inbox (and spam folder).',
+      errors: {
+        default: 'An error occurred. Please try again later.',
+        invalidCredential: 'Email or password is incorrect. Please check again!',
+        wrongPassword: 'Password is incorrect. Please check again!',
+        userNotFound: 'This email account is not registered on the system.',
+        emailAlreadyInUse: 'This email address is already in use by another account.',
+        invalidEmail: 'Invalid email address format. Please check again!',
+        weakPassword: 'Password is too weak. It must be at least 6 characters long.',
+        tooManyRequests: 'Account temporarily locked due to too many failed login attempts. Please try again later!',
+        networkRequestFailed: 'Network error. Please check your internet connection.',
       },
     },
   },
