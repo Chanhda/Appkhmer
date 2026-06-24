@@ -91,10 +91,10 @@ export async function fetchArticles(): Promise<ArticleDocument[]> {
       return db.localeCompare(da);
     });
 
-    const firestoreIds = new Set(firestoreArticles.map((a) => a.id));
-    const staticFallback = articleItems.filter((a) => !firestoreIds.has(a.id));
-
-    return [...customArticles, ...firestoreArticles, ...staticFallback];
+    if (firestoreArticles.length > 0) {
+      return [...customArticles, ...firestoreArticles];
+    }
+    return [...customArticles, ...articleItems];
   } catch {
     return [...customArticles, ...articleItems];
   }

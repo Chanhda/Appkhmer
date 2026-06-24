@@ -10,7 +10,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Image
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
@@ -243,10 +244,10 @@ export default function AuthScreen() {
           entering={FadeIn.duration(600)}
           style={styles.brandingContainer}
         >
-          <View style={[styles.logoBadge, { backgroundColor: `${C.primary}12`, borderColor: `${C.primary}30` }]}>
-            <IconSymbol name="building.columns.fill" size={32} color={C.primary} />
+          <View style={[styles.logoBadge, { backgroundColor: 'transparent', borderColor: `${C.primary}30`, overflow: 'hidden' }]}>
+            <Image source={require('../assets/images/icon.png')} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
           </View>
-          <Text style={[styles.brandTitle, { color: C.primary }]}>Heritage</Text>
+          <Text style={[styles.brandTitle, { color: C.primary }]}>Văn hóa Khmer Nam Bộ</Text>
           <Text style={[styles.brandSubtitle, { color: C.textTertiary }]}>{t.auth.subtitle}</Text>
         </Animated.View>
 
@@ -547,9 +548,10 @@ const styles = StyleSheet.create({
     ...Shadows.goldGlow,
   },
   brandTitle: {
-    fontSize: 36,
+    fontSize: 24, // Reduced from 36 to fit "Văn hóa Khmer Nam Bộ"
     fontFamily: FontFamily.playfairBold,
     letterSpacing: 1,
+    textAlign: 'center',
   },
   brandSubtitle: {
     ...Typography.labelSmall,

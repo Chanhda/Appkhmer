@@ -63,11 +63,10 @@ export async function fetchHeritages(): Promise<HeritageDocument[]> {
     const snapshot = await getDocs(heritagesQuery);
     const firestoreHeritages = snapshot.docs.map((heritageDoc) => mapHeritageDoc(heritageDoc.id, heritageDoc.data()));
 
-    // Merge: Firestore first, then static items not in Firestore
-    const firestoreIds = new Set(firestoreHeritages.map(h => h.id));
-    const staticFallback = heritageItems.filter(h => !firestoreIds.has(h.id));
-
-    return [...firestoreHeritages, ...staticFallback];
+    if (firestoreHeritages.length > 0) {
+      return firestoreHeritages;
+    }
+    return heritageItems;
   } catch {
     // Firebase error → fall back to local demo data
     return heritageItems;
