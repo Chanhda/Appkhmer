@@ -104,16 +104,27 @@ async function writeCollection(collectionName: SeedCollectionName, documents: Se
   for (let index = 0; index < documents.length; index += batchSize) {
     const chunk = documents.slice(index, index + batchSize);
     const batch = db.batch();
+    let writeCount = 0;
 
     for (const document of chunk) {
       const { id, ...data } = document;
       const normalizedData = sanitizeValue(data) as Record<string, unknown>;
       const docRef = db.collection(collectionName).doc(id);
-      batch.set(docRef, normalizedData);
+      
+      // Kiểm tra nếu tài liệu đã tồn tại thì không ghi đè để bảo vệ dữ liệu người dùng tự chỉnh sửa
+      const docSnap = await docRef.get();
+      if (!docSnap.exists) {
+        batch.set(docRef, normalizedData);
+        writeCount++;
+      }
     }
 
-    await batch.commit();
-    console.log(`Uploaded ${chunk.length} documents to ${collectionName}`);
+    if (writeCount > 0) {
+      await batch.commit();
+      console.log(`Uploaded ${writeCount} new documents to ${collectionName}`);
+    } else {
+      console.log(`No new documents to upload to ${collectionName}`);
+    }
   }
 }
 
@@ -128,15 +139,9 @@ async function main() {
     }
   }
 
-  // Clear existing collections first
-  console.log('🧹 Clearing existing collections in Firestore...');
-  for (const [collectionName] of seedCollections()) {
-    await deleteCollection(collectionName);
-  }
-  console.log('🧹 All collections cleared.\n');
-
-  // Seed collections
-  console.log('🌱 Seeding new data into Firestore...');
+  // BỎ LỆNH XÓA ĐỂ BẢO VỆ DỮ LIỆU CŨ
+  console.log('ℹ️ Skipping clearing collections to protect existing user data.');
+  console.log('🌱 Seeding new data into Firestore (only adding missing documents)...');
   for (const [collectionName, documents] of seedCollections()) {
     await writeCollection(collectionName, documents as SeedDocument[]);
   }

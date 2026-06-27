@@ -31,12 +31,22 @@ export default function MapScreen() {
   const [loading, setLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
 
+  // Lấy danh sách các tỉnh có di sản vật thể (tangible) thực tế đang có trong dữ liệu
+  const activeProvinces = Array.from(
+    new Set(
+      heritages
+        .filter((h) => h.type === 'tangible' && h.province)
+        .map((h) => h.province)
+    )
+  ).sort();
+
   const filters = [
     { id: 'all', label: t.home.categories.all, icon: 'square.grid.2x2' as const },
-    { id: 'Sóc Trăng', label: 'Sóc Trăng', icon: 'mappin.circle.fill' as const },
-    { id: 'Trà Vinh', label: 'Trà Vinh', icon: 'mappin.circle.fill' as const },
-    { id: 'Bạc Liêu', label: 'Bạc Liêu', icon: 'mappin.circle.fill' as const },
-    { id: 'TP. Hồ Chí Minh', label: 'TP. HCM', icon: 'mappin.circle.fill' as const },
+    ...activeProvinces.map((province) => ({
+      id: province,
+      label: province === 'TP. Hồ Chí Minh' ? 'TP. HCM' : province,
+      icon: 'mappin.circle.fill' as const,
+    })),
   ];
 
   useEffect(() => {
