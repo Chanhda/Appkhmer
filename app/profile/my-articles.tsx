@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BorderRadius, Colors, Spacing, Typography, Shadows, FontFamily } from '@/constants/theme';
 import { useColorSchemePreference } from '@/contexts/color-scheme-context';
+import { useLanguage } from '@/contexts/language-context';
 import { fetchArticlesByAuthor, type ArticleDocument, type ArticleStatus } from '@/lib/article-repository';
 import { useAuthSession } from '@/lib/auth-session';
 import { getArticleImageSource } from '@/constants/image-resolver';
@@ -26,6 +27,7 @@ export default function MyArticlesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { firebaseUser } = useAuthSession();
+  const { language } = useLanguage();
   const { resolvedColorScheme } = useColorSchemePreference();
   const C = Colors[resolvedColorScheme];
   const isDark = resolvedColorScheme === 'dark';
@@ -59,21 +61,21 @@ export default function MyArticlesScreen() {
     switch (finalStatus) {
       case 'published':
         return {
-          label: 'Đã duyệt',
+          label: language === 'vi' ? 'Đã duyệt' : language === 'km' ? 'បានអនុម័ត' : 'Approved',
           bg: isDark ? 'rgba(127, 222, 221, 0.15)' : 'rgba(0, 112, 115, 0.1)',
           color: C.accent,
           icon: 'checkmark.circle.fill' as const,
         };
       case 'rejected':
         return {
-          label: 'Bị từ chối',
+          label: language === 'vi' ? 'Bị từ chối' : language === 'km' ? 'បានបដិសេធ' : 'Rejected',
           bg: isDark ? 'rgba(255, 180, 171, 0.15)' : 'rgba(186, 26, 26, 0.1)',
           color: C.error,
           icon: 'exclamationmark.octagon.fill' as const,
         };
       default:
         return {
-          label: 'Đang chờ duyệt',
+          label: language === 'vi' ? 'Đang chờ duyệt' : language === 'km' ? 'រង់ចាំការអនុម័ត' : 'Pending',
           bg: isDark ? 'rgba(242, 202, 80, 0.15)' : 'rgba(182, 139, 30, 0.1)',
           color: C.primary,
           icon: 'clock.fill' as const,
@@ -88,7 +90,9 @@ export default function MyArticlesScreen() {
           <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, { backgroundColor: `${C.primary}15` }]}>
             <IconSymbol name="chevron.left" size={18} color={C.primary} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: C.primary }]}>Bài viết của tôi</Text>
+          <Text style={[styles.headerTitle, { color: C.primary }]}>
+            {language === 'vi' ? 'Bài viết của tôi' : language === 'km' ? 'អត្ថបទរបស់ខ្ញុំ' : 'My Articles'}
+          </Text>
         </View>
         <View style={[styles.centerContainer, { paddingHorizontal: Spacing.xl }]}>
           {/* Guest Avatar Placeholder */}
@@ -111,7 +115,7 @@ export default function MyArticlesScreen() {
             entering={FadeInDown.delay(100).duration(600)}
             style={[styles.lockTitle, { color: isDark ? C.primary : C.primaryDark }]}
           >
-            Yêu cầu đăng nhập
+            {language === 'vi' ? 'Yêu cầu đăng nhập' : language === 'km' ? 'តម្រូវឲ្យចូល' : 'Login Required'}
           </Animated.Text>
 
           {/* Message */}
@@ -119,7 +123,7 @@ export default function MyArticlesScreen() {
             entering={FadeInDown.delay(150).duration(600)}
             style={[styles.lockMessage, { color: C.textSecondary }]}
           >
-            Vui lòng đăng nhập để xem danh sách bài viết đóng góp của bạn.
+            {language === 'vi' ? 'Vui lòng đăng nhập để xem danh sách bài viết đóng góp của bạn.' : language === 'km' ? 'សូមចូលដើម្បីមើលបញ្ជីអត្ថបទដែលអ្នកបានចូលរួម។' : 'Please log in to view your contributed articles.'}
           </Animated.Text>
 
           {/* Login Button */}
@@ -139,7 +143,9 @@ export default function MyArticlesScreen() {
                   <View style={styles.loginBtnIconWrap}>
                     <IconSymbol name="person.fill" size={16} color="#131313" />
                   </View>
-                  <Text style={styles.loginBtnText}>Đăng nhập ngay</Text>
+                  <Text style={styles.loginBtnText}>
+                    {language === 'vi' ? 'Đăng nhập ngay' : language === 'km' ? 'ចូលឥឡូវនេះ' : 'Log in now'}
+                  </Text>
                   <IconSymbol name="chevron.right" size={14} color="rgba(19,19,19,0.6)" />
                 </View>
               </LinearGradient>
@@ -160,7 +166,9 @@ export default function MyArticlesScreen() {
         >
           <IconSymbol name="chevron.left" size={18} color={C.primary} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: C.primary }]}>Bài viết của tôi</Text>
+        <Text style={[styles.headerTitle, { color: C.primary }]}>
+          {language === 'vi' ? 'Bài viết của tôi' : language === 'km' ? 'អត្ថបទរបស់ខ្ញុំ' : 'My Articles'}
+        </Text>
         <Pressable
           onPress={loadUserArticles}
           style={({ pressed }) => [styles.refreshBtn, { backgroundColor: `${C.primary}15` }, pressed ? { opacity: 0.7 } : {}]}
@@ -172,7 +180,9 @@ export default function MyArticlesScreen() {
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={C.primary} />
-          <Text style={[styles.loadingText, { color: C.textSecondary }]}>Đang tải danh sách bài viết...</Text>
+          <Text style={[styles.loadingText, { color: C.textSecondary }]}>
+            {language === 'vi' ? 'Đang tải danh sách bài viết...' : language === 'km' ? 'កំពុងទាញយកបញ្ជីអត្ថបទ...' : 'Loading articles list...'}
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -185,15 +195,19 @@ export default function MyArticlesScreen() {
               <View style={[styles.emptyIconBg, { backgroundColor: C.backgroundSecondary }]}>
                 <IconSymbol name="doc.text" size={36} color={C.textTertiary} />
               </View>
-              <Text style={[styles.emptyTitle, { color: C.text }]}>Chưa đóng góp bài viết nào</Text>
+              <Text style={[styles.emptyTitle, { color: C.text }]}>
+                {language === 'vi' ? 'Chưa đóng góp bài viết nào' : language === 'km' ? 'មិនទាន់បានចូលរួមអត្ថបទនៅឡើយទេ' : 'No articles contributed yet'}
+              </Text>
               <Text style={[styles.emptyDesc, { color: C.textSecondary }]}>
-                Bài viết bạn chia sẻ về văn hóa, lịch sử và di sản sẽ xuất hiện ở đây sau khi bạn gửi.
+                {language === 'vi' ? 'Bài viết bạn chia sẻ về văn hóa, lịch sử và di sản sẽ xuất hiện ở đây sau khi bạn gửi.' : language === 'km' ? 'អត្ថបទដែលអ្នកចែករំលែកអំពីវប្បធម៌ ប្រវត្តិសាស្ត្រ និងបេតិកភណ្ឌនឹងបង្ហាញនៅទីនេះ។' : 'Articles you share about culture, history and heritage will appear here after you submit.'}
               </Text>
               <Pressable
                 style={({ pressed }) => [styles.contributeBtn, { backgroundColor: C.primary }, pressed ? { opacity: 0.9 } : {}]}
                 onPress={() => router.push('/articles/new')}
               >
-                <Text style={styles.contributeBtnText}>Viết bài ngay</Text>
+                <Text style={styles.contributeBtnText}>
+                  {language === 'vi' ? 'Viết bài ngay' : language === 'km' ? 'សរសេរអត្ថបទឥឡូវនេះ' : 'Write an article now'}
+                </Text>
               </Pressable>
             </View>
           }
@@ -229,7 +243,7 @@ export default function MyArticlesScreen() {
                         {item.title}
                       </Text>
                       <Text style={[styles.dateText, { color: C.textSecondary }]}>
-                        Ngày gửi: {item.date || (item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '')}
+                        {language === 'vi' ? 'Ngày gửi' : language === 'km' ? 'កាលបរិច្ឆេទ' : 'Date'}: {item.date || (item.createdAt ? new Date(item.createdAt).toLocaleDateString(language === 'vi' ? 'vi-VN' : language === 'km' ? 'km-KH' : 'en-US') : '')}
                       </Text>
                     </View>
                   </View>

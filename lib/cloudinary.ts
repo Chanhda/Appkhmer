@@ -11,7 +11,7 @@ import { Platform } from 'react-native';
 const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dijsvql6w';
 const UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'khmerapp_preset';
 
-export type UploadFolder = 'articles' | 'heritages' | 'avatars';
+export type UploadFolder = 'articles' | 'heritages' | 'avatars' | 'festivals';
 
 /**
  * Upload ảnh lên Cloudinary và trả về URL công khai.

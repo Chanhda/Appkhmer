@@ -24,6 +24,12 @@ export default function ProfileLayout() {
       }}
     >
       <Stack.Screen
+        name="my-articles"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="settings"
         options={{
           title: t.profile.menu.settings,

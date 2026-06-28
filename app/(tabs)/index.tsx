@@ -158,16 +158,44 @@ export default function HomeScreen() {
 
         {/* Admin shortcut */}
         {isAdmin && (
-          <View style={styles.adminRow}>
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.adminRow}>
             <Pressable
-              style={({ pressed }) => [styles.adminBtn, pressed && { opacity: 0.8 }]}
+              style={({ pressed }) => [
+                styles.adminBtn,
+                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }
+              ]}
               onPress={() => router.push('/admin')}
             >
-              <IconSymbol name="gear.badge" size={15} color={colors.primary} />
-              <ThemedText style={styles.adminBtnText}>Quản trị viên</ThemedText>
-              <IconSymbol name="chevron.right" size={12} color={colors.primary} />
+              <LinearGradient
+                colors={colorScheme === 'dark' ? ['#241C0F', '#3D2F18', '#241C0F'] : ['#FFFDF5', '#FAF0D9', '#FFFDF5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.adminGradient}
+              >
+                <View style={styles.adminBtnLeft}>
+                  <View style={styles.adminIconCircle}>
+                    <IconSymbol name="shield.fill" size={20} color="#D4AF37" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <ThemedText style={styles.adminBtnTitle}>
+                        {language === 'vi' ? 'Bảng Quản Trị Viên' : language === 'km' ? 'ផ្ទាំងគ្រប់គ្រង' : 'Admin Portal'}
+                      </ThemedText>
+                      <View style={styles.adminBadgePill}>
+                        <ThemedText style={styles.adminBadgePillText}>PRO</ThemedText>
+                      </View>
+                    </View>
+                    <ThemedText style={styles.adminBtnSub} numberOfLines={1}>
+                      {language === 'vi' ? 'Quản lý bài viết, di sản & phân quyền' : language === 'km' ? 'គ្រប់គ្រងអត្ថបទ បេតិកភណ្ឌ និងសិទ្ធិ' : 'Manage articles, heritage & roles'}
+                    </ThemedText>
+                  </View>
+                </View>
+                <View style={styles.adminArrowWrap}>
+                  <IconSymbol name="chevron.right" size={14} color="#131313" />
+                </View>
+              </LinearGradient>
             </Pressable>
-          </View>
+          </Animated.View>
         )}
 
         {/* ── Statistics Section ── */}
@@ -217,6 +245,80 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* ── Khmer Festival Calendar Widget ── */}
+        <View style={{ paddingHorizontal: Spacing.md, marginBottom: Spacing.lg }}>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={() => router.push('/festivals' as any)}
+            style={{
+              borderRadius: BorderRadius.xl,
+              overflow: 'hidden',
+              backgroundColor: colorScheme === 'dark' ? 'rgba(30, 26, 18, 0.95)' : '#FFF9EE',
+              borderWidth: 1.5,
+              borderColor: '#D4AF37',
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              ...Platform.select({
+                web: { boxShadow: '0 4px 20px rgba(212,175,55,0.15)' },
+                default: {
+                  shadowColor: '#D4AF37',
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 8,
+                  elevation: 5,
+                },
+              }),
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 }}>
+              <View
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: 'rgba(212,175,55,0.18)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: '#D4AF37',
+                }}
+              >
+                <IconSymbol name="calendar" size={24} color="#D4AF37" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF4D4D' }} />
+                  <ThemedText style={{ fontSize: 10, fontWeight: '800', color: '#D4AF37', letterSpacing: 0.8 }}>
+                    ĐẾM NGƯỢC THỜI GIAN THỰC
+                  </ThemedText>
+                </View>
+                <ThemedText style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
+                  Lịch Lễ Hội Khmer 📅
+                </ThemedText>
+                <ThemedText style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }} numberOfLines={1}>
+                  Khám phá Chôl Chnăm Thmây, Ók Om Bók, Sên Đôl-ta...
+                </ThemedText>
+              </View>
+            </View>
+            <View
+              style={{
+                backgroundColor: '#D4AF37',
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 20,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <ThemedText style={{ color: '#131313', fontSize: 11, fontWeight: '800' }}>Xem ngay</ThemedText>
+              <IconSymbol name="chevron.right" size={12} color="#131313" />
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* ── Featured Heritage ── */}
@@ -497,20 +599,75 @@ const getStyles = (C: typeof Colors.dark, scheme: string) => StyleSheet.create({
     marginBottom: Spacing.md,
   },
   adminBtn: {
+    borderRadius: BorderRadius.xl,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#D4AF37',
+    ...Platform.select({
+      web: { boxShadow: '0 6px 24px rgba(212,175,55,0.25)' },
+      default: {
+        shadowColor: '#D4AF37',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
+        elevation: 7,
+      },
+    }),
+  },
+  adminGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    alignSelf: 'flex-start',
-    backgroundColor: `${C.primary}15`,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 8,
-    borderRadius: BorderRadius.full,
-    borderWidth: 0.5,
-    borderColor: `${C.primary}30`,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  adminBtnText: {
-    ...Typography.labelMedium,
-    color: C.primary,
+  adminBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  adminIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(212,175,55,0.15)',
+    borderWidth: 1.5,
+    borderColor: '#D4AF37',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  adminBtnTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: scheme === 'dark' ? '#F2CA50' : '#8F6C13',
+    fontFamily: FontFamily.playfairBold,
+  },
+  adminBadgePill: {
+    backgroundColor: '#D4AF37',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  adminBadgePillText: {
+    fontSize: 8,
+    fontWeight: '900',
+    color: '#131313',
+    letterSpacing: 0.5,
+  },
+  adminBtnSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: C.textSecondary,
+  },
+  adminArrowWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#D4AF37',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
 
   // ── Section ───────────────────────────────────────

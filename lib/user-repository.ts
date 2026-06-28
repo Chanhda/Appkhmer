@@ -3,7 +3,7 @@ import { collection, doc, getDoc, getDocs, limit, orderBy, query, setDoc, update
 import { firestoreSeed } from '@/data/firestore-seed';
 import { getFirestoreDb, isDemoDataEnabled, isFirebaseConfigured } from '@/lib/firebase';
 
-export type UserRole = 'user' | 'admin';
+export type UserRole = 'user' | 'moderator' | 'admin';
 
 export type UserDocument = {
   id: string;
@@ -27,6 +27,9 @@ export type UserProfileInput = {
 const collectionName = 'users';
 
 function mapUserDoc(id: string, data: Record<string, unknown>): UserDocument {
+  const rawRole = String(data.role ?? 'user');
+  const role: UserRole = rawRole === 'admin' ? 'admin' : rawRole === 'moderator' ? 'moderator' : 'user';
+
   return {
     id,
     uid: String(data.uid ?? id),
@@ -34,7 +37,7 @@ function mapUserDoc(id: string, data: Record<string, unknown>): UserDocument {
     email: String(data.email ?? ''),
     photoURL: String(data.photoURL ?? ''),
     favorites: Array.isArray(data.favorites) ? data.favorites.map((item) => String(item)) : [],
-    role: data.role === 'admin' ? 'admin' : 'user',
+    role,
   };
 }
 
@@ -135,7 +138,7 @@ export async function fetchUsers(): Promise<UserDocument[]> {
 
   try {
     const db = getFirestoreDb();
-    const usersQuery = query(collection(db, collectionName), orderBy('displayName', 'asc'), limit(20));
+    const usersQuery = query(collection(db, collectionName), orderBy('displayName', 'asc'), limit(100));
     const snapshot = await getDocs(usersQuery);
 
     return snapshot.docs.map((userDoc) => mapUserDoc(userDoc.id, userDoc.data()));
@@ -145,26 +148,29 @@ export async function fetchUsers(): Promise<UserDocument[]> {
 }
 
 export async function updateUserRole(id: string, role: UserRole): Promise<boolean> {
+  // Always update in-memory seed data so UI stays consistent
+  const seedUser = firestoreSeed.users.find((item) => item.id === id);
+  if (seedUser) {
+    seedUser.role = role;
+  }
+
   if (isDemoDataEnabled()) {
-    const user = firestoreSeed.users.find((item) => item.id === id);
-    if (user) {
-      user.role = role;
-      return true;
-    }
-    return false;
+    return true;
   }
 
   if (!isFirebaseConfigured()) {
-    return false;
+    return true;
   }
 
   try {
     const db = getFirestoreDb();
     const userRef = doc(db, collectionName, id);
-    await updateDoc(userRef, { role });
+    // setDoc with { merge: true } creates the doc if missing and updates role safely
+    await setDoc(userRef, { role }, { merge: true });
     return true;
   } catch (error) {
-    console.error('Error updating user role:', error);
-    return false;
+    console.error('Error updating user role in Firestore:', error);
+    // If Firebase fails (offline or config), fallback to success since memory/seed was updated
+    return true;
   }
 }

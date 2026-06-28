@@ -185,6 +185,7 @@ export function CustomAlert({
                   ]}
                   activeOpacity={0.7}
                   onPress={() => {
+                    onClose();
                     onConfirm();
                   }}
                 >

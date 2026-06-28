@@ -23,6 +23,15 @@ export const ARTICLE_LOCAL_IMAGES: Record<string, number> = {
   'nhac-ngu-am-pinpeat': require('../assets/articles/nhac-ngu-am-pinpeat.png'),
 };
 
+// Local festival images - require() cho từng lễ hội cụ thể
+export const FESTIVAL_LOCAL_IMAGES: Record<string, number> = {
+  'ok-om-bok': require('../assets/heritages/le-hoi-ooc-om-bok.png'),
+  'sen-dol-ta': require('../assets/heritages/le-hoi-sene-dolta.png'),
+  'kathina': require('../assets/heritages/le-hoi-kathina.png'),
+  'dua-bo-that-son': require('../assets/heritages/chua-ghositaram.png'),
+  'chol-chnam-thmay': require('../assets/heritages/chua-som-rong.png'),
+};
+
 // Mặc định các Unsplash URL ban đầu để kiểm tra xem ảnh bìa có bị thay đổi không
 const DEFAULT_HERITAGE_URLS: Record<string, string> = {
   'chua-som-rong': 'https://images.unsplash.com/photo-1590001155093-a3c66ab0c3ff?auto=format&fit=crop&w=600&q=80',
@@ -139,4 +148,14 @@ export function getArticleImageSource(
     }
   })();
   return { uri: fallbackUrl };
+}
+
+export function getFestivalImageSource(id: string, coverImage?: string): { uri: string } | number {
+  if (FESTIVAL_LOCAL_IMAGES[id]) {
+    return FESTIVAL_LOCAL_IMAGES[id];
+  }
+  if (coverImage && coverImage.trim().length > 0) {
+    return { uri: coverImage.trim() };
+  }
+  return { uri: 'https://images.unsplash.com/photo-1508009603885-50cf7c579365?auto=format&fit=crop&w=600&q=80' };
 }

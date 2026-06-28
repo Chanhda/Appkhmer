@@ -86,9 +86,6 @@ export default function MapScreen() {
       {/* Sticky Header */}
       <Animated.View entering={FadeIn.duration(400)} style={[styles.stickyHeader, { paddingTop: Math.max(insets.top, 12) }]}>
         <View style={styles.headerInner}>
-          <View style={styles.headerBadge}>
-            <IconSymbol name="map.fill" size={14} color={C.primary} />
-          </View>
           <ThemedText style={styles.headerTitle}>{t.map.title}</ThemedText>
         </View>
       </Animated.View>

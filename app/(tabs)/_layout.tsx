@@ -33,14 +33,14 @@ export default function TabLayout() {
             backgroundColor: colorScheme === 'light' ? 'rgba(249, 246, 240, 0.96)' : 'rgba(19,19,19,0.92)',
             borderTopColor: colorScheme === 'light' ? 'rgba(208, 196, 178, 0.4)' : 'rgba(77,70,53,0.4)',
             height: Platform.select({
-              web: 64,
+              web: 70,
               ios: 88,
-              default: 60 + Math.max(insets.bottom, 12),
+              default: 62 + Math.max(insets.bottom, 12),
             }),
             paddingBottom: Platform.select({
-              web: 8,
+              web: 10,
               ios: 24,
-              default: Math.max(insets.bottom, 12),
+              default: Math.max(insets.bottom, 10),
             }),
           }
         ],
@@ -55,7 +55,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
               <IconSymbol size={ICON_SIZE} name={focused ? 'house.fill' : 'house'} color={color} />
-              {focused && <View style={[styles.dot, { backgroundColor: C.primary }]} />}
             </View>
           ),
         }}
@@ -67,7 +66,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
               <IconSymbol size={ICON_SIZE} name={focused ? 'safari.fill' : 'safari'} color={color} />
-              {focused && <View style={[styles.dot, { backgroundColor: C.primary }]} />}
             </View>
           ),
         }}
@@ -79,7 +77,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
               <IconSymbol size={ICON_SIZE} name={focused ? 'building.columns.fill' : 'building.columns'} color={color} />
-              {focused && <View style={[styles.dot, { backgroundColor: C.primary }]} />}
             </View>
           ),
         }}
@@ -91,7 +88,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
               <IconSymbol size={ICON_SIZE} name={focused ? 'map.fill' : 'map'} color={color} />
-              {focused && <View style={[styles.dot, { backgroundColor: C.primary }]} />}
             </View>
           ),
         }}
@@ -103,7 +99,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
               <IconSymbol size={ICON_SIZE} name={focused ? 'person.fill' : 'person'} color={color} />
-              {focused && <View style={[styles.dot, { backgroundColor: C.primary }]} />}
             </View>
           ),
         }}
@@ -121,7 +116,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(19,19,19,0.92)',
     borderTopWidth: 0.5,
     borderTopColor: 'rgba(77,70,53,0.4)',
-    paddingTop: Platform.select({ ios: 10, default: 8 }),
+    paddingTop: Platform.select({ ios: 10, default: 6 }),
     ...Platform.select({
       web: { boxShadow: '0 -4px 20px rgba(212,175,55,0.05)' },
       default: {
@@ -135,28 +130,18 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     paddingTop: 4,
-    paddingBottom: 2,
+    paddingBottom: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    letterSpacing: 0.3,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.2,
     marginTop: 2,
-    fontFamily: Platform.select({ default: undefined }),
   },
   iconWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-  },
-  /** Gold dot indicator under active tab */
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#F2CA50',
-    marginTop: 1,
   },
 });

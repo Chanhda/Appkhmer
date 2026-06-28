@@ -73,10 +73,10 @@ export default function ProfileScreen() {
   ];
 
   const menuItems = [
-    ...(isAdmin ? [{ id: 'admin', label: 'Quản trị viên', icon: 'crown.fill' as const, color: C.primary, route: '/admin' as const }] : []),
+    ...(isAdmin ? [{ id: 'admin', label: language === 'vi' ? 'Quản trị viên' : language === 'km' ? 'អ្នកគ្រប់គ្រង' : 'Admin', icon: 'crown.fill' as const, color: C.primary, route: '/admin' as const }] : []),
     { id: 'settings', label: t.profile.menu.settings, icon: 'gearshape.fill' as const, color: C.primary, route: '/profile/settings' as const },
     { id: 'notifications', label: t.profile.menu.notifications, icon: 'bell.fill' as const, color: C.accent, route: '/profile/notifications' as const },
-    ...(firebaseUser ? [{ id: 'my-articles', label: 'Bài viết của tôi', icon: 'doc.text.fill' as const, color: C.accent, route: '/profile/my-articles' as const }] : []),
+    ...(firebaseUser ? [{ id: 'my-articles', label: language === 'vi' ? 'Bài viết của tôi' : language === 'km' ? 'អត្ថបទរបស់ខ្ញុំ' : 'My Articles', icon: 'doc.text.fill' as const, color: C.accent, route: '/profile/my-articles' as const }] : []),
     { id: 'favorites', label: t.profile.menu.favorites, icon: 'heart.fill' as const, color: isDark ? '#FFB4A8' : '#A83B2D', route: '/profile/favorites' as const },
     { id: 'history', label: t.profile.menu.history, icon: 'clock.fill' as const, color: C.textSecondary, route: '/profile/history' as const },
     { id: 'help', label: t.profile.menu.help, icon: 'questionmark.circle.fill' as const, color: C.textSecondary, route: '/profile/help' as const },
@@ -214,7 +214,9 @@ export default function ProfileScreen() {
       <Animated.View entering={FadeInDown.delay(250).duration(500)} style={styles.section}>
         <View style={styles.sectionHeader}>
           <IconSymbol name="globe" size={14} color={C.textTertiary} />
-          <Text style={[styles.sectionTitle, { color: C.textTertiary, marginBottom: 0 }]}>Ngôn ngữ</Text>
+          <Text style={[styles.sectionTitle, { color: C.textTertiary, marginBottom: 0 }]}>
+            {language === 'vi' ? 'Ngôn ngữ' : language === 'km' ? 'ភាសា' : 'Language'}
+          </Text>
         </View>
         <View style={styles.langRow}>
           {languages.map(l => {

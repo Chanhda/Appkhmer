@@ -11,6 +11,8 @@ type AuthSessionValue = {
   profile: UserDocument | null;
   loading: boolean;
   isAdmin: boolean;
+  isModerator: boolean;
+  isStaff: boolean;
 };
 
 const AuthSessionContext = createContext<AuthSessionValue | undefined>(undefined);
@@ -65,6 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     loading,
     isAdmin: profile?.role === 'admin',
+    isModerator: profile?.role === 'moderator',
+    isStaff: profile?.role === 'admin' || profile?.role === 'moderator',
   }), [firebaseUser, profile, loading]);
 
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>;
@@ -98,10 +102,23 @@ export function useRequireAdmin() {
   const session = useAuthSession();
 
   useEffect(() => {
-    if (!session.loading && (!session.firebaseUser || session.profile?.role !== 'admin')) {
+    if (!session.loading && (!session.firebaseUser || !session.isStaff)) {
       router.replace(session.firebaseUser ? '/' : '/auth');
     }
-  }, [router, session.firebaseUser, session.loading, session.profile?.role]);
+  }, [router, session.firebaseUser, session.loading, session.isStaff]);
+
+  return session;
+}
+
+export function useRequireSuperAdmin() {
+  const router = useRouter();
+  const session = useAuthSession();
+
+  useEffect(() => {
+    if (!session.loading && (!session.firebaseUser || !session.isAdmin)) {
+      router.replace(session.firebaseUser ? '/admin' : '/auth');
+    }
+  }, [router, session.firebaseUser, session.loading, session.isAdmin]);
 
   return session;
 }

@@ -105,12 +105,13 @@ function AppShell() {
     <LanguageProvider>
       <AuthProvider>
         <ThemeProvider value={NavigationTheme}>
-          <Stack>
+          <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="profile" options={{ headerShown: false }} />
             <Stack.Screen name="auth" options={{ headerShown: false }} />
             <Stack.Screen name="admin" options={{ headerShown: false }} />
+            <Stack.Screen name="festivals" options={{ headerShown: false }} />
           </Stack>
           <StatusBar 
             style={colorScheme === 'light' ? 'dark' : 'light'} 

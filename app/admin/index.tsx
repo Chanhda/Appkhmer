@@ -23,6 +23,7 @@ import { useLanguage } from '@/contexts/language-context';
 import { fetchAllArticlesAdmin, approveArticle, rejectArticle, deleteArticle, type ArticleDocument } from '@/lib/article-repository';
 import { useRequireAdmin } from '@/lib/auth-session';
 import { fetchHeritages } from '@/lib/heritage-repository';
+import { fetchUsers } from '@/lib/user-repository';
 import { getTimeAgo } from '@/lib/time-utils';
 
 const HERO_IMAGE = require('../../assets/heritages/chua-ghositaram.png');
@@ -38,7 +39,7 @@ const hexToRgba = (hex: string, alpha: number) => {
 };
 
 export default function AdminDashboardScreen() {
-  const { loading: authLoading } = useRequireAdmin();
+  const { loading: authLoading, isAdmin, isModerator } = useRequireAdmin();
   const router = useRouter();
   const { resolvedColorScheme } = useColorSchemePreference();
   const { t, language } = useLanguage();
@@ -48,6 +49,7 @@ export default function AdminDashboardScreen() {
 
   const [articles, setArticles] = useState<ArticleDocument[]>([]);
   const [heritageCount, setHeritageCount] = useState(0);
+  const [userCount, setUserCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('pending');
 
@@ -103,17 +105,19 @@ export default function AdminDashboardScreen() {
     if (authLoading) return;
     (async () => {
       try {
-        const [articleData, heritageData] = await Promise.all([
+        const [articleData, heritageData, userData] = await Promise.all([
           fetchAllArticlesAdmin(),
           fetchHeritages(),
+          isAdmin ? fetchUsers() : Promise.resolve([]),
         ]);
         setArticles(articleData);
         setHeritageCount(heritageData.length);
+        setUserCount(userData.length);
       } finally {
         setLoading(false);
       }
     })();
-  }, [authLoading]);
+  }, [authLoading, isAdmin]);
 
   const handleApprove = async (id: string) => {
     try {
@@ -346,8 +350,11 @@ export default function AdminDashboardScreen() {
             {/* Quick links Grid - Side by Side */}
             <View style={styles.quickLinksGrid}>
               {[
+                { label: language === 'vi' ? 'Thống kê' : language === 'km' ? 'ស្ថិតិ' : 'Analytics', icon: 'chart.bar.fill' as const, href: '/admin/analytics', count: totalViews > 1000 ? `${(totalViews / 1000).toFixed(0)}K` : totalViews, color: '#E8CA74' },
+                { label: language === 'vi' ? 'Lễ hội' : language === 'km' ? 'ពិធីបុណ្យ' : 'Festivals', icon: 'calendar' as const, href: '/admin/festivals', count: 5, color: '#F2CA50' },
                 { label: t.admin.articlesLink, icon: 'doc.text.fill' as const, href: '/admin/articles', count: articles.length, color: C.accent },
                 { label: t.admin.heritagesLink, icon: 'building.columns.fill' as const, href: '/admin/heritages', count: heritageCount, color: C.primary },
+                ...(isAdmin ? [{ label: language === 'vi' ? 'Tài khoản' : language === 'km' ? 'គណនី' : 'Users', icon: 'person.2.fill' as const, href: '/admin/users', count: userCount, color: '#FFB4AB' }] : []),
               ].map(item => (
                 <TouchableOpacity
                   key={item.label}
@@ -366,9 +373,9 @@ export default function AdminDashboardScreen() {
                   <View style={[styles.quickLinkIcon, { backgroundColor: `${item.color}15` }]}>
                     <IconSymbol name={item.icon} size={14} color={item.color} />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.quickLinkLabel, { color: C.text }]}>{item.label}</Text>
-                    <Text style={[styles.quickLinkCount, { color: C.textTertiary }]}>{item.count}{t.admin.itemCount}</Text>
+                  <View style={{ flex: 1, justifyContent: 'center' }}>
+                    <Text style={[styles.quickLinkLabel, { color: C.text }]} numberOfLines={1}>{item.label}</Text>
+                    <Text style={[styles.quickLinkCount, { color: C.textTertiary }]} numberOfLines={1}>{item.count}{t.admin.itemCount}</Text>
                   </View>
                   <IconSymbol name="chevron.right" size={11} color={C.textTertiary} />
                 </TouchableOpacity>
@@ -853,13 +860,13 @@ const styles = StyleSheet.create({
   },
 
   // Quick links Grid
-  quickLinksGrid: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.xs },
+  quickLinksGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: Spacing.xs },
   quickLink: {
-    flex: 1,
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    width: '48%',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
     borderWidth: 0.5,
     borderRadius: BorderRadius.md, 
-    padding: Spacing.sm,
+    padding: 10,
     ...Shadows.small,
   },
   quickLinkIcon: {

@@ -22,7 +22,7 @@ import { useColorSchemePreference } from '@/contexts/color-scheme-context';
 import { useLanguage } from '@/contexts/language-context';
 import { type ArticleDocument, fetchArticleById, isArticleLikedLocally, toggleArticleLike, incrementArticleViews, fetchArticles } from '@/lib/article-repository';
 import { useAuthSession } from '@/lib/auth-session';
-import { type CommentDocument, fetchCommentsForArticle, addCommentToArticle } from '@/lib/comment-repository';
+import { type CommentDocument, fetchCommentsForArticle, addCommentToArticle, toggleCommentLike, deleteComment } from '@/lib/comment-repository';
 import { getArticleImageSource } from '@/constants/image-resolver';
 import { getTimeAgo } from '@/lib/time-utils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,6 +46,7 @@ export default function ArticleDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [newComment, setNewComment] = useState('');
+  const [replyingTo, setReplyingTo] = useState<CommentDocument | null>(null);
   const [comments, setComments] = useState<CommentDocument[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [relatedArticles, setRelatedArticles] = useState<ArticleDocument[]>([]);
@@ -58,15 +59,27 @@ export default function ArticleDetailScreen() {
   const handleAddComment = async () => {
     if (!newComment.trim() || typeof id !== 'string') return;
     const authorName = profile?.displayName ?? firebaseUser?.email?.split('@')[0] ?? 'Người đóng góp';
-    const text = newComment.trim();
+    
+    // Strip leading @AuthorName if present to avoid double-tagging
+    let text = newComment.trim();
+    if (replyingTo?.authorName && text.startsWith(`@${replyingTo.authorName}`)) {
+      text = text.replace(`@${replyingTo.authorName}`, '').trim();
+    }
+    if (!text) return;
+
+    const parentId = replyingTo?.id;
+    const replyToAuthor = replyingTo?.authorName;
     setNewComment('');
+    setReplyingTo(null);
     
     try {
       const savedComment = await addCommentToArticle(
         id,
         text,
         authorName,
-        firebaseUser?.uid
+        firebaseUser?.uid,
+        parentId,
+        replyToAuthor
       );
       setComments(prev => [...prev, savedComment]);
       setTimeout(() => {
@@ -75,6 +88,35 @@ export default function ArticleDetailScreen() {
     } catch (err) {
       console.error('Error adding comment:', err);
       Alert.alert('Lỗi', 'Không thể gửi bình luận của bạn lúc này.');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (typeof id !== 'string') return;
+    setComments(prev => prev.filter(c => c.id !== commentId));
+    try {
+      await deleteComment(id, commentId);
+    } catch (err) {
+      console.error('Error deleting comment:', err);
+    }
+  };
+
+  const handleToggleCommentLike = async (commentId: string) => {
+    const userId = firebaseUser?.uid || 'guest-user';
+    setComments(prev =>
+      prev.map(c => {
+        if (c.id === commentId) {
+          const likedBy = Array.isArray(c.likedBy) ? [...c.likedBy] : [];
+          const hasLiked = likedBy.includes(userId);
+          const newLikedBy = hasLiked ? likedBy.filter(u => u !== userId) : [...likedBy, userId];
+          const newLikes = Math.max(0, (c.likes || 0) + (hasLiked ? -1 : 1));
+          return { ...c, likes: newLikes, likedBy: newLikedBy };
+        }
+        return c;
+      })
+    );
+    if (typeof id === 'string') {
+      await toggleCommentLike(id, commentId, userId);
     }
   };
 
@@ -426,11 +468,23 @@ export default function ArticleDetailScreen() {
               {language === 'vi' ? `Bình luận (${comments.length})` : language === 'km' ? `មតិយោបល់ (${comments.length})` : `Comments (${comments.length})`}
             </Text>
 
+            {/* Replying Banner */}
+            {replyingTo && (
+              <View style={[styles.replyingBanner, { backgroundColor: `${C.primary}15`, borderColor: `${C.primary}35` }]}>
+                <Text style={[styles.replyingText, { color: C.primary }]}>
+                  💬 {language === 'vi' ? `Đang trả lời @${replyingTo.authorName}` : language === 'km' ? `កំពុងឆ្លើយតប @${replyingTo.authorName}` : `Replying to @${replyingTo.authorName}`}
+                </Text>
+                <Pressable onPress={() => setReplyingTo(null)} hitSlop={8}>
+                  <IconSymbol name="xmark.circle.fill" size={16} color={C.textTertiary} />
+                </Pressable>
+              </View>
+            )}
+
             {/* Comment Input */}
             <View style={[styles.commentInputRow, { borderColor: C.border, backgroundColor: C.backgroundSecondary }]}>
               <TextInput
                 style={[styles.commentInput, { color: C.text }]}
-                placeholder={language === 'vi' ? 'Viết bình luận...' : language === 'km' ? 'សរសេរមតិយោបល់...' : 'Write a comment...'}
+                placeholder={replyingTo ? (language === 'vi' ? `Trả lời ${replyingTo.authorName}...` : `Reply to ${replyingTo.authorName}...`) : (language === 'vi' ? 'Viết bình luận...' : language === 'km' ? 'សរសេរមតិយោបល់...' : 'Write a comment...')}
                 placeholderTextColor={C.textTertiary}
                 value={newComment}
                 onChangeText={setNewComment}
@@ -454,24 +508,82 @@ export default function ArticleDetailScreen() {
                   <ActivityIndicator size="small" color={C.primary} />
                 </View>
               ) : comments.length > 0 ? (
-                comments.map((comment) => (
-                  <View key={comment.id} style={[styles.commentItem, { borderBottomColor: `${C.border}40` }]}>
-                    <View style={[styles.commentAvatar, { backgroundColor: C.backgroundTertiary }]}>
-                      <Text style={[styles.avatarLetter, { color: C.primary }]}>
-                        {comment.authorName ? comment.authorName.charAt(0).toUpperCase() : 'U'}
-                      </Text>
-                    </View>
-                    <View style={styles.commentContent}>
-                      <View style={styles.commentHeader}>
-                        <Text style={[styles.commentAuthor, { color: C.text }]}>{comment.authorName}</Text>
-                        <Text style={[styles.commentTime, { color: C.textTertiary }]}>{getTimeAgo(comment.createdAt, language)}</Text>
+                comments.map((comment) => {
+                  const currentUserId = firebaseUser?.uid || 'guest-user';
+                  const currentAuthorName = profile?.displayName ?? firebaseUser?.email?.split('@')[0] ?? 'Người đóng góp';
+                  const hasLiked = Array.isArray(comment.likedBy) && comment.likedBy.includes(currentUserId);
+                  
+                  // Strict check: only allow deleting own comment
+                  const isMyComment = Boolean(
+                    (firebaseUser?.uid && comment.userId === firebaseUser.uid) ||
+                    (comment.authorName && comment.authorName === currentAuthorName)
+                  );
+
+                  return (
+                    <View key={comment.id} style={[styles.commentItem, comment.parentId ? { marginLeft: 24, borderLeftWidth: 2, borderLeftColor: `${C.primary}30`, paddingLeft: 10 } : null, { borderBottomColor: `${C.border}40` }]}>
+                      <View style={[styles.commentAvatar, { backgroundColor: C.backgroundTertiary }]}>
+                        <Text style={[styles.avatarLetter, { color: C.primary }]}>
+                          {comment.authorName ? comment.authorName.charAt(0).toUpperCase() : 'U'}
+                        </Text>
                       </View>
-                      <Text style={[styles.commentText, { color: C.textSecondary }]}>
-                        {comment.text}
-                      </Text>
+                      <View style={styles.commentContent}>
+                        <View style={styles.commentHeader}>
+                          <Text style={[styles.commentAuthor, { color: C.text }]}>{comment.authorName}</Text>
+                          <Text style={[styles.commentTime, { color: C.textTertiary }]}>{getTimeAgo(comment.createdAt, language)}</Text>
+                        </View>
+                        
+                        <Text style={[styles.commentText, { color: C.textSecondary }]}>
+                          {comment.replyToAuthor && (
+                            <Text style={styles.replyBadge}>@{comment.replyToAuthor} </Text>
+                          )}
+                          {comment.text}
+                        </Text>
+
+                        {/* Comment Action Buttons (Like, Reply, Retract) */}
+                        <View style={styles.commentActionRow}>
+                          <Pressable
+                            style={({ pressed }) => [styles.commentActionBtn, pressed && { opacity: 0.7 }]}
+                            onPress={() => handleToggleCommentLike(comment.id)}
+                          >
+                            <IconSymbol
+                              name={hasLiked ? 'heart.fill' : 'heart'}
+                              size={13}
+                              color={hasLiked ? C.secondary : C.textTertiary}
+                            />
+                            <Text style={[styles.commentActionText, { color: hasLiked ? C.secondary : C.textTertiary }]}>
+                              {comment.likes && comment.likes > 0 ? comment.likes : (language === 'vi' ? 'Thích' : 'Like')}
+                            </Text>
+                          </Pressable>
+
+                          <Pressable
+                            style={({ pressed }) => [styles.commentActionBtn, pressed && { opacity: 0.7 }]}
+                            onPress={() => {
+                              setReplyingTo(comment);
+                              setNewComment('');
+                            }}
+                          >
+                            <IconSymbol name="bubble.left" size={13} color={C.textTertiary} />
+                            <Text style={[styles.commentActionText, { color: C.textTertiary }]}>
+                              {language === 'vi' ? 'Trả lời' : language === 'km' ? 'ឆ្លើយតប' : 'Reply'}
+                            </Text>
+                          </Pressable>
+
+                          {isMyComment && (
+                            <Pressable
+                              style={({ pressed }) => [styles.commentActionBtn, pressed && { opacity: 0.7 }]}
+                              onPress={() => handleDeleteComment(comment.id)}
+                            >
+                              <IconSymbol name="trash" size={12} color="#FFB4AB" />
+                              <Text style={[styles.commentActionText, { color: '#FFB4AB' }]}>
+                                {language === 'vi' ? 'Thu hồi' : language === 'km' ? 'ដកវិញ' : 'Delete'}
+                              </Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                ))
+                  );
+                })
               ) : (
                 <View style={{ paddingVertical: 20, alignItems: 'center' }}>
                   <Text style={{ color: C.textTertiary, fontStyle: 'italic', fontSize: 13 }}>
@@ -957,6 +1069,40 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.inter,
     fontSize: 13,
     lineHeight: 18,
+  },
+  replyBadge: {
+    fontFamily: FontFamily.interSemiBold,
+    fontWeight: '700',
+    color: '#D4AF37',
+  },
+  replyingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    marginBottom: 6,
+  },
+  replyingText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  commentActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 6,
+  },
+  commentActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  commentActionText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   sectionContainer: {
     marginTop: Spacing.md,

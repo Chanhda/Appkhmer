@@ -142,19 +142,28 @@ function buildPalette() {
 }
 
 // ─── Font Families ─────────────────────────────────────────
-export const FontFamily = {
-  /** Headlines, titles — clean, elegant, modern geometric sans */
-  playfair: 'Outfit_600SemiBold',
-  playfairBold: 'Outfit_700Bold',
-  playfairMedium: 'Outfit_500Medium',
-  /** Body, labels, UI — high-readability Inter sans-serif */
-  inter: 'Inter_400Regular',
-  interMedium: 'Inter_500Medium',
-  interSemiBold: 'Inter_600SemiBold',
-  /** Fallback */
-  serif: Platform.select({ ios: 'Georgia', default: 'serif' }),
-  sans: Platform.select({ ios: 'System', default: 'sans-serif' }),
-};
+export const FontFamily = Platform.select({
+  web: {
+    playfair: "'Outfit', 'Inter', system-ui, -apple-system, sans-serif",
+    playfairBold: "'Outfit', 'Inter', system-ui, -apple-system, sans-serif",
+    playfairMedium: "'Outfit', 'Inter', system-ui, -apple-system, sans-serif",
+    inter: "'Inter', system-ui, -apple-system, sans-serif",
+    interMedium: "'Inter', system-ui, -apple-system, sans-serif",
+    interSemiBold: "'Inter', system-ui, -apple-system, sans-serif",
+    serif: "'Cormorant Garamond', Georgia, serif",
+    sans: "system-ui, -apple-system, sans-serif",
+  },
+  default: {
+    playfair: 'Outfit_600SemiBold',
+    playfairBold: 'Outfit_700Bold',
+    playfairMedium: 'Outfit_500Medium',
+    inter: 'Inter_400Regular',
+    interMedium: 'Inter_500Medium',
+    interSemiBold: 'Inter_600SemiBold',
+    serif: Platform.select({ ios: 'Georgia', default: 'serif' }),
+    sans: Platform.select({ ios: 'System', default: 'sans-serif' }),
+  },
+})!;
 
 // ─── Typography ─────────────────────────────────────────────
 export const Typography = {
