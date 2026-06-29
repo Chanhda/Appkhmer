@@ -72,5 +72,11 @@ service cloud.firestore {
       allow create: if isSignedIn();
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
+
+    // Festivals - Public read, Admin write
+    match /festivals/{festivalId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
   }
 }

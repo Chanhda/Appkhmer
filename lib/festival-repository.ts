@@ -41,6 +41,7 @@ export async function fetchFestivals(): Promise<FestivalItem[]> {
     const firestoreFestivals = snapshot.docs.map((docSnap) => mapFestivalDoc(docSnap.id, docSnap.data()));
 
     if (firestoreFestivals.length > 0) {
+      localFestivalItems = firestoreFestivals;
       return firestoreFestivals;
     }
     return localFestivalItems;

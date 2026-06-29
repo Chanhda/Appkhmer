@@ -1,5 +1,6 @@
 import { articleItems } from '../constants/articles';
 import { heritageItems } from '../constants/heritages';
+import { festivalItems } from '../constants/festivals';
 
 export const firestoreSeed = {
   categories: [
@@ -16,6 +17,7 @@ export const firestoreSeed = {
     status: 'published',
   })),
   heritages: heritageItems,
+  festivals: festivalItems,
   media: [
     {
       id: 'media-1',

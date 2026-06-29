@@ -104,8 +104,10 @@ export default function EditFestivalScreen() {
               }
             }
 
-            const dateVi = typeof item.dateDisplay === 'string' ? item.dateDisplay : item.dateDisplay?.vi || '';
-            setLunarDateVi(dateVi);
+            const rawDateVi = typeof item.dateDisplay === 'string' ? item.dateDisplay : item.dateDisplay?.vi || '';
+            // Strip duplicate bracketed strings if present
+            const cleanDateVi = rawDateVi.replace(/(\s*\([^)]*\))+$/g, '').trim();
+            setLunarDateVi(cleanDateVi || rawDateVi);
             setSolarDateVi(typeof item.dateDisplay === 'object' ? item.dateDisplay?.en || '' : '');
             setDateDisplayKm(typeof item.dateDisplay === 'object' ? item.dateDisplay?.km || '' : '');
             setDateDisplayEn(typeof item.dateDisplay === 'object' ? item.dateDisplay?.en || '' : '');
@@ -219,9 +221,11 @@ export default function EditFestivalScreen() {
       }
 
       // Format Dual Calendar Display
-      const combinedDisplayVi = lunarDateVi.trim() 
-        ? `${lunarDateVi.trim()}${solarDateVi.trim() ? ` (${solarDateVi.trim()})` : ''}`
-        : solarDateVi.trim() || 'Hàng năm';
+      const cleanLunar = lunarDateVi.replace(/(\s*\([^)]*\))+$/g, '').trim();
+      const cleanSolar = solarDateVi.trim();
+      const combinedDisplayVi = cleanLunar 
+        ? `${cleanLunar}${cleanSolar && !cleanLunar.includes(cleanSolar) ? ` (${cleanSolar})` : ''}`
+        : cleanSolar || 'Hàng năm';
 
       const festivalData: Partial<FestivalItem> = {
         title: { vi: titleVi, km: khmerTitle || titleVi, en: titleVi },

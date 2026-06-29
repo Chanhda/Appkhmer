@@ -24,6 +24,7 @@ import { fetchAllArticlesAdmin, approveArticle, rejectArticle, deleteArticle, ty
 import { useRequireAdmin } from '@/lib/auth-session';
 import { fetchHeritages } from '@/lib/heritage-repository';
 import { fetchUsers } from '@/lib/user-repository';
+import { fetchFestivals } from '@/lib/festival-repository';
 import { getTimeAgo } from '@/lib/time-utils';
 
 const HERO_IMAGE = require('../../assets/heritages/chua-ghositaram.png');
@@ -49,6 +50,7 @@ export default function AdminDashboardScreen() {
 
   const [articles, setArticles] = useState<ArticleDocument[]>([]);
   const [heritageCount, setHeritageCount] = useState(0);
+  const [festivalCount, setFestivalCount] = useState(0);
   const [userCount, setUserCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('pending');
@@ -105,13 +107,15 @@ export default function AdminDashboardScreen() {
     if (authLoading) return;
     (async () => {
       try {
-        const [articleData, heritageData, userData] = await Promise.all([
+        const [articleData, heritageData, festivalData, userData] = await Promise.all([
           fetchAllArticlesAdmin(),
           fetchHeritages(),
+          fetchFestivals(),
           isAdmin ? fetchUsers() : Promise.resolve([]),
         ]);
         setArticles(articleData);
         setHeritageCount(heritageData.length);
+        setFestivalCount(festivalData.length);
         setUserCount(userData.length);
       } finally {
         setLoading(false);
@@ -350,11 +354,41 @@ export default function AdminDashboardScreen() {
             {/* Quick links Grid - Side by Side */}
             <View style={styles.quickLinksGrid}>
               {[
-                { label: language === 'vi' ? 'Thống kê' : language === 'km' ? 'ស្ថិតិ' : 'Analytics', icon: 'chart.bar.fill' as const, href: '/admin/analytics', count: totalViews > 1000 ? `${(totalViews / 1000).toFixed(0)}K` : totalViews, color: '#E8CA74' },
-                { label: language === 'vi' ? 'Lễ hội' : language === 'km' ? 'ពិធីបុណ្យ' : 'Festivals', icon: 'calendar' as const, href: '/admin/festivals', count: 5, color: '#F2CA50' },
-                { label: t.admin.articlesLink, icon: 'doc.text.fill' as const, href: '/admin/articles', count: articles.length, color: C.accent },
-                { label: t.admin.heritagesLink, icon: 'building.columns.fill' as const, href: '/admin/heritages', count: heritageCount, color: C.primary },
-                ...(isAdmin ? [{ label: language === 'vi' ? 'Tài khoản' : language === 'km' ? 'គណនី' : 'Users', icon: 'person.2.fill' as const, href: '/admin/users', count: userCount, color: '#FFB4AB' }] : []),
+                { 
+                  label: language === 'vi' ? 'Thống kê' : language === 'km' ? 'ស្ថិតិ' : 'Analytics', 
+                  icon: 'chart.bar.fill' as const, 
+                  href: '/admin/analytics', 
+                  countText: language === 'vi' ? 'Báo cáo 📊' : language === 'km' ? 'របាយការណ៍ 📊' : 'Report 📊', 
+                  color: '#E8CA74' 
+                },
+                { 
+                  label: language === 'vi' ? 'Lễ hội' : language === 'km' ? 'ពិធីបុណ្យ' : 'Festivals', 
+                  icon: 'calendar' as const, 
+                  href: '/admin/festivals', 
+                  countText: `${festivalCount} ${t.admin.itemCount}`, 
+                  color: '#F2CA50' 
+                },
+                { 
+                  label: t.admin.articlesLink, 
+                  icon: 'doc.text.fill' as const, 
+                  href: '/admin/articles', 
+                  countText: `${articles.length} ${t.admin.itemCount}`, 
+                  color: C.accent 
+                },
+                { 
+                  label: t.admin.heritagesLink, 
+                  icon: 'building.columns.fill' as const, 
+                  href: '/admin/heritages', 
+                  countText: `${heritageCount} ${t.admin.itemCount}`, 
+                  color: C.primary 
+                },
+                ...(isAdmin ? [{ 
+                  label: language === 'vi' ? 'Tài khoản' : language === 'km' ? 'គណនី' : 'Users', 
+                  icon: 'person.2.fill' as const, 
+                  href: '/admin/users', 
+                  countText: `${userCount} ${t.admin.itemCount}`, 
+                  color: '#FFB4AB' 
+                }] : []),
               ].map(item => (
                 <TouchableOpacity
                   key={item.label}
@@ -375,7 +409,7 @@ export default function AdminDashboardScreen() {
                   </View>
                   <View style={{ flex: 1, justifyContent: 'center' }}>
                     <Text style={[styles.quickLinkLabel, { color: C.text }]} numberOfLines={1}>{item.label}</Text>
-                    <Text style={[styles.quickLinkCount, { color: C.textTertiary }]} numberOfLines={1}>{item.count}{t.admin.itemCount}</Text>
+                    <Text style={[styles.quickLinkCount, { color: C.textTertiary }]} numberOfLines={1}>{item.countText}</Text>
                   </View>
                   <IconSymbol name="chevron.right" size={11} color={C.textTertiary} />
                 </TouchableOpacity>

@@ -151,6 +151,20 @@ export function getArticleImageSource(
 }
 
 export function getFestivalImageSource(id: string, coverImage?: string): { uri: string } | number {
+  if (coverImage && coverImage.trim().length > 0) {
+    const trimmed = coverImage.trim();
+    const isCustomImage =
+      trimmed.includes('cloudinary.com') ||
+      trimmed.startsWith('file:') ||
+      trimmed.startsWith('content:') ||
+      trimmed.startsWith('ph:') ||
+      trimmed.startsWith('assets-library:') ||
+      trimmed.startsWith('data:') ||
+      (trimmed.startsWith('http') && !FESTIVAL_LOCAL_IMAGES[id]);
+    if (isCustomImage || !FESTIVAL_LOCAL_IMAGES[id]) {
+      return { uri: trimmed };
+    }
+  }
   if (FESTIVAL_LOCAL_IMAGES[id]) {
     return FESTIVAL_LOCAL_IMAGES[id];
   }

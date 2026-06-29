@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -62,11 +62,13 @@ export default function AdminFestivalsScreen() {
     }
   };
 
-  useEffect(() => {
-    if (!authLoading) {
-      loadFestivals();
-    }
-  }, [authLoading]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!authLoading) {
+        loadFestivals();
+      }
+    }, [authLoading])
+  );
 
   const handleDelete = (item: FestivalItem) => {
     const titleText = typeof item.title === 'string' ? item.title : item.title.vi;
